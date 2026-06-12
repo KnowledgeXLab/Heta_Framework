@@ -1,0 +1,41 @@
+site_name: Heta
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: zh
+  features:
+    - content.code.copy
+    - navigation.expand
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - toc.follow
+
+plugins:
+  - search
+
+nav:
+  - 首页: index.zh.md
+  - Core components:
+      - Models:
+          - Language models: core-components/models/language-models.zh.md
+          - Embeddings: core-components/models/embeddings.zh.md
+      - Stores:
+          - Vector stores: core-components/stores/vector-stores.zh.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html

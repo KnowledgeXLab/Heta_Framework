@@ -1,0 +1,87 @@
+[build-system]
+requires = [
+    "setuptools==80.9.0",
+    "wheel==0.45.1",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heta"
+version = "0.1.0"
+description = "Framework-oriented Heta knowledge base toolkit"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "httpx==0.28.1",
+    "litellm==1.87.1",
+]
+
+[project.optional-dependencies]
+json = [
+    "json-repair==0.58.0",
+]
+test = [
+    "pytest==9.0.2",
+]
+build = [
+    "build==1.5.0",
+    "twine==6.2.0",
+]
+docs = [
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.7.6",
+    "pymdown-extensions==10.21",
+]
+milvus = [
+    "pymilvus==2.6.11",
+]
+dev = [
+    "build==1.5.0",
+    "json-repair==0.58.0",
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.7.6",
+    "pymilvus==2.6.11",
+    "pymdown-extensions==10.21",
+    "pytest==9.0.2",
+    "twine==6.2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["heta_framework", "heta_framework.*"]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = [
+    "--strict-config",
+    "--strict-markers",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "B",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "W",
+]
+ignore = [
+    "B008",
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_configs = true
+files = ["src/heta_framework", "tests"]
