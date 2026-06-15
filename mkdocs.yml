@@ -24,6 +24,7 @@ nav:
           - Language models: core-components/models/language-models.zh.md
           - Embeddings: core-components/models/embeddings.zh.md
       - Stores:
+          - SQL stores: core-components/stores/sql-stores.zh.md
           - Vector stores: core-components/stores/vector-stores.zh.md
 
 markdown_extensions:
