@@ -1,5 +1,20 @@
 """Storage interfaces and implementations for Heta."""
 
+from heta_framework.common.stores.object import (
+    LocalObjectStore,
+    LocalObjectStoreConfig,
+    ObjectInfo,
+    ObjectStoreProtocol,
+    S3AddressingStyle,
+    S3ObjectStore,
+    S3ObjectStoreConfig,
+)
+from heta_framework.common.stores.graph import (
+    GraphEdge,
+    GraphNode,
+    GraphStoreProtocol,
+    InMemoryGraphStore,
+)
 from heta_framework.common.stores.sql import (
     SQLExecutorProtocol,
     SQLParameters,
@@ -25,9 +40,20 @@ from heta_framework.common.stores.vector import (
 
 __all__ = [
     "DistanceMetric",
+    "GraphEdge",
+    "GraphNode",
+    "GraphStoreProtocol",
+    "InMemoryGraphStore",
     "InMemoryVectorStore",
+    "LocalObjectStore",
+    "LocalObjectStoreConfig",
     "MilvusVectorStore",
     "MilvusVectorStoreConfig",
+    "ObjectInfo",
+    "ObjectStoreProtocol",
+    "S3AddressingStyle",
+    "S3ObjectStore",
+    "S3ObjectStoreConfig",
     "SQLExecutorProtocol",
     "SQLParameters",
     "SQLResult",

@@ -7,6 +7,7 @@ from typing import Protocol, runtime_checkable
 
 from heta_framework.common.models.embeddings.types import EmbeddingRequest, EmbeddingResult
 from heta_framework.common.models.language.types import ModelChunk, ModelRequest, ModelResult
+from heta_framework.common.models.rerankers.types import RerankRequest, RerankResult
 
 
 @runtime_checkable
@@ -46,4 +47,22 @@ class EmbeddingModelProtocol(Protocol):
 
     async def embed_many(self, requests: Sequence[EmbeddingRequest]) -> list[EmbeddingResult]:
         """Run multiple embedding requests while preserving order."""
+        ...
+
+
+@runtime_checkable
+class RerankModelProtocol(Protocol):
+    """Capability protocol for rerank models."""
+
+    @property
+    def model_name(self) -> str:
+        """Model name used by this client."""
+        ...
+
+    async def rerank(self, request: RerankRequest) -> RerankResult:
+        """Rerank one batch of documents for a query."""
+        ...
+
+    async def rerank_many(self, requests: Sequence[RerankRequest]) -> list[RerankResult]:
+        """Run multiple rerank requests while preserving order."""
         ...

@@ -29,6 +29,18 @@ from heta_framework.common.models.language import (
 from heta_framework.common.models.protocols import (
     EmbeddingModelProtocol,
     LanguageModelProtocol,
+    RerankModelProtocol,
+)
+from heta_framework.common.models.rerankers import (
+    RerankConfig,
+    RerankError,
+    RerankItem,
+    RerankModel,
+    RerankOptions,
+    RerankRequest,
+    RerankRequestError,
+    RerankResponseError,
+    RerankResult,
 )
 
 __all__ = [
@@ -54,6 +66,16 @@ __all__ = [
     "ModelRequestError",
     "ModelResponseError",
     "ModelResult",
+    "RerankConfig",
+    "RerankError",
+    "RerankItem",
+    "RerankModel",
+    "RerankModelProtocol",
+    "RerankOptions",
+    "RerankRequest",
+    "RerankRequestError",
+    "RerankResponseError",
+    "RerankResult",
     "TextPart",
     "TokenUsage",
 ]

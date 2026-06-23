@@ -19,13 +19,48 @@ plugins:
 
 nav:
   - 首页: index.zh.md
+  - 快速开始: quick-start.zh.md
   - Core components:
+      - Knowledge base:
+          - Knowledge recipe: core-components/knowledge-base/knowledge-recipe.zh.md
+          - KnowledgeBaseBuilder: core-components/knowledge-base/knowledge-base-builder.zh.md
+          - KnowledgeBase: core-components/knowledge-base/knowledge-base.zh.md
       - Models:
           - Language models: core-components/models/language-models.zh.md
           - Embeddings: core-components/models/embeddings.zh.md
+          - Rerankers: core-components/models/rerankers.zh.md
+      - Parsers:
+          - Document parsers: core-components/parsers/document-parsers.zh.md
+      - Procedures:
+          - Knowledge procedures: core-components/procedures/knowledge-procedures.zh.md
+      - Search:
+          - Query protocols: core-components/search/query-protocols.zh.md
+          - Vector search: core-components/search/vector-search.zh.md
+          - Keyword search: core-components/search/keyword-search.zh.md
+          - Heta graph search: core-components/search/heta-graph-search.zh.md
+          - Heta query modes: core-components/search/heta-query-modes.zh.md
+      - Steps:
+          - Step protocols: core-components/steps/step-protocols.zh.md
+          - Document indexing:
+              - Parse documents: core-components/steps/parse-documents.zh.md
+              - Split documents: core-components/steps/split-documents.zh.md
+              - Embed chunks: core-components/steps/embed-chunks.zh.md
+              - Index vectors: core-components/steps/index-vectors.zh.md
+          - Heta graph procedure:
+              - Merge chunks: core-components/steps/merge-chunks.zh.md
+              - Rechunk documents: core-components/steps/rechunk-documents.zh.md
+              - Persist chunks: core-components/steps/persist-chunks.zh.md
+              - Extract entities: core-components/steps/extract-entities.zh.md
+              - Extract relations: core-components/steps/extract-relations.zh.md
+              - Deduplicate entities: core-components/steps/deduplicate-entities.zh.md
+              - Deduplicate relations: core-components/steps/deduplicate-relations.zh.md
+              - Build graph: core-components/steps/build-graph.zh.md
+              - Merge graph into store: core-components/steps/merge-graph-into-store.zh.md
       - Stores:
+          - Object stores: core-components/stores/object-stores.zh.md
           - SQL stores: core-components/stores/sql-stores.zh.md
           - Vector stores: core-components/stores/vector-stores.zh.md
+          - Graph stores: core-components/stores/graph-stores.zh.md
 
 markdown_extensions:
   - admonition
