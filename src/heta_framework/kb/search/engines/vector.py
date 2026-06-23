@@ -8,6 +8,16 @@ from heta_framework.common.models import EmbeddingRequest
 from heta_framework.common.models.protocols import EmbeddingModelProtocol
 from heta_framework.common.stores.vector import VectorQuery, VectorStoreProtocol
 from heta_framework.kb.search.assets import SearchAssetRef
+from heta_framework.kb.search.engines._language import (
+    answer_from_results_with_prompt,
+    optional_language_model_from_context,
+    should_generate_answer,
+)
+from heta_framework.kb.search.engines.answer_prompts import vector_answer_prompt
+from heta_framework.kb.search.engines._provenance import (
+    chunk_source_from_metadata,
+    citations_from_results,
+)
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 from heta_framework.kb.steps.types import ComponentRef, model_ref, store_ref
@@ -20,6 +30,7 @@ class VectorSearchEngine:
     mode: str = "vector_search"
     asset_ref: SearchAssetRef = SearchAssetRef(kind="chunk_vector_index")
     embedding_model: str | None = None
+    language_model: str | None = None
 
     @property
     def required_assets(self) -> frozenset[SearchAssetRef]:
@@ -59,7 +70,7 @@ class VectorSearchEngine:
                 text=hit.text or "",
                 score=hit.score,
                 kind="chunk",
-                source=_source_from_metadata(hit.metadata or {}),
+                source=chunk_source_from_metadata(hit.metadata or {}, chunk_id=hit.id),
                 metadata={
                     **(hit.metadata or {}),
                     "collection": collection,
@@ -68,6 +79,13 @@ class VectorSearchEngine:
             )
             for hit in hits
             if hit.text
+        )
+        answer, answer_metadata = await _generate_answer(
+            context=context,
+            request=request,
+            results=results,
+            mode=self.mode,
+            language_model=self.language_model,
         )
         trace = ()
         if request.trace:
@@ -85,14 +103,44 @@ class VectorSearchEngine:
         return QueryResponse(
             mode=self.mode,
             results=results,
+            answer=answer,
+            citations=citations_from_results(results),
             trace=trace,
             metadata={
                 "collection": collection,
                 "embedding_model": embedding.model_name or embedding_model.model_name,
+                **answer_metadata,
             },
         )
 
 
+async def _generate_answer(
+    *,
+    context: QueryContext,
+    request: QueryRequest,
+    results: tuple[QueryResult, ...],
+    mode: str,
+    language_model: str | None,
+) -> tuple[str | None, dict[str, object]]:
+    if not should_generate_answer(request):
+        return None, {"answer_generation": "disabled"}
+    model = optional_language_model_from_context(context, language_model)
+    if model is None:
+        return None, {
+            "answer_generation": "missing_language_model",
+            "answer_generation_requested": True,
+        }
+    answer = await answer_from_results_with_prompt(
+        model,
+        query=request.text,
+        results=results,
+        prompt=vector_answer_prompt(request.text, results),
+        trace_context={"query_mode": mode, "stage": "answer_generation"},
+    )
+    return answer or None, {
+        "answer_generation": "generated" if answer else "empty",
+        "answer_model": model.model_name,
+    }
 def _store_ref_from_asset(store: str | None) -> ComponentRef:
     if store is None:
         return store_ref("vector")
@@ -112,23 +160,6 @@ def _metadata_string(metadata: object, key: str, *, default: str) -> str:
         if isinstance(value, str) and value.strip():
             return value
     return default
-
-
-def _source_from_metadata(metadata: dict[str, object]) -> dict[str, object]:
-    source: dict[str, object] = {}
-    for key in (
-        "document_id",
-        "source_key",
-        "source_name",
-        "source_file_type",
-        "page_index",
-        "chunk_index",
-        "token_start",
-        "token_end",
-    ):
-        if key in metadata:
-            source[key] = metadata[key]
-    return source
 
 
 def _require_embedding_model(component: object) -> EmbeddingModelProtocol:

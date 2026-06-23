@@ -40,8 +40,18 @@ class FakeVectorEngine:
         return QueryResponse(
             mode=self.mode,
             results=(
-                QueryResult(id="chunk_a", text=f"vector {request.text}", score=0.9),
-                QueryResult(id="chunk_b", text="shared chunk", score=0.8),
+                QueryResult(
+                    id="chunk_a",
+                    text=f"vector {request.text}",
+                    score=0.9,
+                    source={"object_key": "raw/vector.pdf", "chunk_ids": ("chunk_a",)},
+                ),
+                QueryResult(
+                    id="chunk_b",
+                    text="shared chunk",
+                    score=0.8,
+                    source={"object_key": "raw/shared.pdf", "chunk_ids": ("chunk_b",)},
+                ),
             ),
         )
 
@@ -54,8 +64,18 @@ class FakeKeywordEngine:
         return QueryResponse(
             mode=self.mode,
             results=(
-                QueryResult(id="chunk_b", text="shared chunk", score=0.7),
-                QueryResult(id="chunk_c", text=f"keyword {request.text}", score=0.6),
+                QueryResult(
+                    id="chunk_b",
+                    text="shared chunk",
+                    score=0.7,
+                    source={"object_key": "raw/shared.pdf", "chunk_ids": ("chunk_b",)},
+                ),
+                QueryResult(
+                    id="chunk_c",
+                    text=f"keyword {request.text}",
+                    score=0.6,
+                    source={"object_key": "raw/keyword.pdf", "chunk_ids": ("chunk_c",)},
+                ),
             ),
         )
 
@@ -74,8 +94,18 @@ class FakeHybridEngine:
         return QueryResponse(
             mode=self.mode,
             results=(
-                QueryResult(id="chunk_a", text=f"hybrid {request.text}", score=0.9),
-                QueryResult(id="chunk_b", text="shared chunk", score=0.8),
+                QueryResult(
+                    id="chunk_a",
+                    text=f"hybrid {request.text}",
+                    score=0.9,
+                    source={"object_key": "raw/hybrid.pdf", "chunk_ids": ("chunk_a",)},
+                ),
+                QueryResult(
+                    id="chunk_b",
+                    text="shared chunk",
+                    score=0.8,
+                    source={"object_key": "raw/shared.pdf", "chunk_ids": ("chunk_b",)},
+                ),
             ),
         )
 
@@ -93,12 +123,19 @@ class FakeGraphEngine:
         return QueryResponse(
             mode=self.mode,
             results=(
-                QueryResult(id="entity_ocean", text="graph ocean entity", score=0.3, kind="entity"),
+                QueryResult(
+                    id="entity_ocean",
+                    text="graph ocean entity",
+                    score=0.3,
+                    kind="entity",
+                    source={"object_key": "raw/graph.pdf", "chunk_ids": ("chunk_g1",)},
+                ),
                 QueryResult(
                     id="relation_bio",
                     text="graph biodiversity relation",
                     score=0.2,
                     kind="relation",
+                    source={"object_key": "raw/graph.pdf", "chunk_ids": ("chunk_g2",)},
                 ),
             ),
         )
@@ -112,11 +149,17 @@ class FakeBaseEngine:
         return QueryResponse(
             mode=self.mode,
             results=(
-                QueryResult(id=f"{request.text}:1", text=f"evidence for {request.text}", score=1.0),
+                QueryResult(
+                    id=f"{request.text}:1",
+                    text=f"evidence for {request.text}",
+                    score=1.0,
+                    source={"object_key": "raw/base.pdf", "chunk_ids": (f"{request.text}:1",)},
+                ),
                 QueryResult(
                     id=f"{request.text}:2",
                     text=f"more evidence for {request.text}",
                     score=0.5,
+                    source={"object_key": "raw/base.pdf", "chunk_ids": (f"{request.text}:2",)},
                 ),
             ),
         )
@@ -197,6 +240,8 @@ def test_rerank_search_fuses_candidates_and_uses_reranker():
         assert [result.id for result in response.results] == ["chunk_c", "chunk_b"]
         assert response.metadata["used_reranker"] is True
         assert response.results[0].metadata["reranker_model"] == "test/reranker"
+        assert response.results[0].source["object_key"] == "raw/keyword.pdf"
+        assert response.citations[0].source == response.results[0].source
 
     asyncio.run(run())
 
@@ -230,6 +275,8 @@ def test_hybrid_search_fuses_vector_and_graph_with_weighted_rrf():
             "chunk_a",
         ]
         assert response.results[0].metadata["retrieval_modes"] == ("heta_graph_search",)
+        assert response.results[0].source["object_key"] == "raw/graph.pdf"
+        assert response.citations[0].result_id == response.results[0].id
 
     asyncio.run(run())
 
@@ -255,6 +302,62 @@ def test_rerank_search_falls_back_to_rrf_without_reranker():
             "hybrid_search",
             "keyword_search",
         )
+        assert response.results[0].source["object_key"] == "raw/shared.pdf"
+        assert response.citations[0].source == response.results[0].source
+
+    asyncio.run(run())
+
+
+def test_query_engine_generates_answer_when_requested():
+    async def run():
+        context = await _context(
+            recipe=KnowledgeRecipe(models=KnowledgeModels(language=FakeLanguageModel())),
+            engines=QueryEngineRegistry(
+                [FakeHybridEngine(), FakeKeywordEngine(), RerankSearchEngine()]
+            ),
+            assets=_heta_rerank_assets(),
+        )
+
+        response = await context.query(
+            "heta_rerank_search",
+            QueryRequest(
+                text="heta",
+                mode="heta_rerank_search",
+                top_k=2,
+                options={"generate_answer": True},
+            ),
+        )
+
+        assert response.answer == "direct answer"
+        assert response.metadata["answer_generation"] == "generated"
+        assert response.citations[0].source == response.results[0].source
+
+    asyncio.run(run())
+
+
+def test_query_engine_does_not_fail_when_answer_model_is_missing():
+    async def run():
+        context = await _context(
+            recipe=KnowledgeRecipe(),
+            engines=QueryEngineRegistry(
+                [FakeHybridEngine(), FakeKeywordEngine(), RerankSearchEngine()]
+            ),
+            assets=_heta_rerank_assets(),
+        )
+
+        response = await context.query(
+            "heta_rerank_search",
+            QueryRequest(
+                text="heta",
+                mode="heta_rerank_search",
+                top_k=2,
+                options={"generate_answer": True},
+            ),
+        )
+
+        assert response.answer is None
+        assert response.results
+        assert response.metadata["answer_generation"] == "missing_language_model"
 
     asyncio.run(run())
 
@@ -289,6 +392,8 @@ def test_rewrite_search_generates_variants_and_fuses_base_results():
         assert response.metadata["issues"] == ()
         assert len(response.results) == 3
         assert response.results[0].id == "expanded alpha:1"
+        assert response.citations[0].result_id == response.results[0].id
+        assert response.citations[0].source == response.results[0].source
 
     asyncio.run(run())
 
@@ -331,6 +436,8 @@ def test_multihop_search_retrieves_until_answer_is_available():
             "complex question:1",
             "complex question:2",
         ]
+        assert response.citations[0].result_id == "complex question:1"
+        assert response.citations[0].source == response.results[0].source
 
     asyncio.run(run())
 

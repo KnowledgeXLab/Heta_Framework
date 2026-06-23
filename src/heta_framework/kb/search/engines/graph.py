@@ -11,6 +11,13 @@ from heta_framework.common.models.protocols import EmbeddingModelProtocol
 from heta_framework.common.stores.sql import SQLStoreProtocol
 from heta_framework.common.stores.vector import VectorQuery, VectorSearchResult, VectorStoreProtocol
 from heta_framework.kb.search.assets import SearchAsset, SearchAssetRef
+from heta_framework.kb.search.engines._language import (
+    answer_from_results_with_prompt,
+    optional_language_model_from_context,
+    should_generate_answer,
+)
+from heta_framework.kb.search.engines.answer_prompts import graph_answer_prompt
+from heta_framework.kb.search.engines._provenance import chunk_source, citations_from_results
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 from heta_framework.kb.steps.graph_storage import validate_identifier
@@ -25,6 +32,7 @@ class HetaGraphSearchEngine:
     graph_tables_ref: SearchAssetRef = SearchAssetRef(kind="graph_tables")
     graph_vectors_ref: SearchAssetRef = SearchAssetRef(kind="graph_vector_index")
     embedding_model: str | None = None
+    language_model: str | None = None
 
     @property
     def required_assets(self) -> frozenset[SearchAssetRef]:
@@ -101,6 +109,13 @@ class HetaGraphSearchEngine:
         final_results = tuple(
             sorted(results.values(), key=_result_score, reverse=True)[: request.top_k]
         )
+        answer, answer_metadata = await _generate_answer(
+            context=context,
+            request=request,
+            results=final_results,
+            mode=self.mode,
+            language_model=self.language_model,
+        )
         trace = ()
         if request.trace:
             trace = (
@@ -119,15 +134,45 @@ class HetaGraphSearchEngine:
         return QueryResponse(
             mode=self.mode,
             results=final_results,
+            answer=answer,
+            citations=citations_from_results(final_results),
             trace=trace,
             metadata={
                 "entity_collection": entity_collection,
                 "relation_collection": relation_collection,
                 "graph_tables": tables_asset.metadata,
+                **answer_metadata,
             },
         )
 
 
+async def _generate_answer(
+    *,
+    context: QueryContext,
+    request: QueryRequest,
+    results: tuple[QueryResult, ...],
+    mode: str,
+    language_model: str | None,
+) -> tuple[str | None, dict[str, object]]:
+    if not should_generate_answer(request):
+        return None, {"answer_generation": "disabled"}
+    model = optional_language_model_from_context(context, language_model)
+    if model is None:
+        return None, {
+            "answer_generation": "missing_language_model",
+            "answer_generation_requested": True,
+        }
+    answer = await answer_from_results_with_prompt(
+        model,
+        query=request.text,
+        results=results,
+        prompt=graph_answer_prompt(request.text, results),
+        trace_context={"query_mode": mode, "stage": "answer_generation"},
+    )
+    return answer or None, {
+        "answer_generation": "generated" if answer else "empty",
+        "answer_model": model.model_name,
+    }
 async def _graph_results(
     sql_store: SQLStoreProtocol,
     asset: SearchAsset,
@@ -447,13 +492,16 @@ def _source_from_evidence(evidence: list[dict[str, Any]]) -> dict[str, Any]:
     if not evidence:
         return {}
     first = evidence[0]
-    return {
-        "document_id": first.get("document_id"),
-        "source_key": first.get("source_key"),
-        "source_name": first.get("source_name"),
-        "chunk_id": first.get("chunk_id"),
-        "evidence_count": len(evidence),
-    }
+    metadata = first.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    return chunk_source(
+        document_id=first.get("document_id"),
+        object_key=first.get("source_key"),
+        object_name=first.get("source_name"),
+        chunk_ids=(item.get("chunk_id") for item in evidence),
+        page_index=metadata.get("page_index"),
+        evidence_count=len(evidence),
+    )
 
 
 def _evidence_top_k(request: QueryRequest) -> int:

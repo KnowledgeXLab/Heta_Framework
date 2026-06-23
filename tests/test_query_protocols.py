@@ -261,7 +261,9 @@ def test_knowledge_base_query_runs_vector_search():
         assert response.mode == "vector_search"
         assert len(response.results) == 1
         assert response.results[0].id == "chunk_heta"
-        assert response.results[0].source["source_key"] == "raw/heta.txt"
+        assert response.results[0].source["object_key"] == "raw/heta.txt"
+        assert response.results[0].source["chunk_ids"] == ("chunk_heta",)
+        assert response.citations[0].source == response.results[0].source
 
     asyncio.run(run())
 
@@ -325,8 +327,10 @@ def test_knowledge_base_query_runs_keyword_search():
 
         assert response.mode == "keyword_search"
         assert [result.id for result in response.results] == ["chunk_keyword"]
-        assert response.results[0].source["source_key"] == "raw/heta.txt"
+        assert response.results[0].source["object_key"] == "raw/heta.txt"
+        assert response.results[0].source["chunk_ids"] == ("chunk_keyword",)
         assert response.results[0].source["page_index"] == 0
+        assert response.citations[0].source == response.results[0].source
         await sql_store.aclose()
 
     asyncio.run(run())

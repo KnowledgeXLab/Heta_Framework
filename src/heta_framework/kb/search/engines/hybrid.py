@@ -5,9 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from heta_framework.kb.search.assets import SearchAssetRef
+from heta_framework.kb.search.engines._language import (
+    answer_from_results_with_prompt,
+    optional_language_model_from_context,
+    should_generate_answer,
+)
+from heta_framework.kb.search.engines.answer_prompts import hybrid_answer_prompt
+from heta_framework.kb.search.engines._provenance import citations_from_results
 from heta_framework.kb.search.engines._ranking import weighted_reciprocal_rank_fusion
 from heta_framework.kb.search.protocols import QueryContext
-from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryTraceEvent
+from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 
 
 @dataclass(frozen=True)
@@ -19,6 +26,7 @@ class HybridSearchEngine:
     vector_asset_ref: SearchAssetRef = SearchAssetRef(kind="chunk_vector_index")
     graph_tables_ref: SearchAssetRef = SearchAssetRef(kind="graph_tables")
     graph_vectors_ref: SearchAssetRef = SearchAssetRef(kind="graph_vector_index")
+    language_model: str | None = None
 
     @property
     def required_assets(self) -> frozenset[SearchAssetRef]:
@@ -46,6 +54,13 @@ class HybridSearchEngine:
             k=_rrf_k(request),
             top_k=request.top_k,
         )
+        answer, answer_metadata = await _generate_answer(
+            context=context,
+            request=request,
+            results=fused,
+            mode=self.mode,
+            language_model=self.language_model,
+        )
 
         trace = ()
         if request.trace:
@@ -66,16 +81,46 @@ class HybridSearchEngine:
         return QueryResponse(
             mode=self.mode,
             results=fused,
+            answer=answer,
+            citations=citations_from_results(fused),
             trace=trace,
             metadata={
                 "candidate_modes": self.candidate_modes,
                 "candidate_top_k": candidate_top_k,
                 "weights": weights,
                 "fusion": "weighted_rrf",
+                **answer_metadata,
             },
         )
 
 
+async def _generate_answer(
+    *,
+    context: QueryContext,
+    request: QueryRequest,
+    results: tuple[QueryResult, ...],
+    mode: str,
+    language_model: str | None,
+) -> tuple[str | None, dict[str, object]]:
+    if not should_generate_answer(request):
+        return None, {"answer_generation": "disabled"}
+    model = optional_language_model_from_context(context, language_model)
+    if model is None:
+        return None, {
+            "answer_generation": "missing_language_model",
+            "answer_generation_requested": True,
+        }
+    answer = await answer_from_results_with_prompt(
+        model,
+        query=request.text,
+        results=results,
+        prompt=hybrid_answer_prompt(request.text, results),
+        trace_context={"query_mode": mode, "stage": "answer_generation"},
+    )
+    return answer or None, {
+        "answer_generation": "generated" if answer else "empty",
+        "answer_model": model.model_name,
+    }
 def _candidate_top_k(request: QueryRequest) -> int:
     value = request.options.get("candidate_top_k")
     if isinstance(value, int) and value > 0:

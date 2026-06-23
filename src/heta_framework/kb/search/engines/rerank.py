@@ -8,6 +8,13 @@ from heta_framework.common.models import RerankOptions, RerankRequest
 from heta_framework.common.models.protocols import RerankModelProtocol
 from heta_framework.kb.components import MissingComponentError
 from heta_framework.kb.search.assets import SearchAssetRef
+from heta_framework.kb.search.engines._language import (
+    answer_from_results_with_prompt,
+    optional_language_model_from_context,
+    should_generate_answer,
+)
+from heta_framework.kb.search.engines.answer_prompts import rerank_answer_prompt
+from heta_framework.kb.search.engines._provenance import citations_from_results
 from heta_framework.kb.search.engines._ranking import reciprocal_rank_fusion
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
@@ -25,6 +32,7 @@ class RerankSearchEngine:
     keyword_asset_ref: SearchAssetRef = SearchAssetRef(kind="chunk_text_index")
     graph_tables_ref: SearchAssetRef = SearchAssetRef(kind="graph_tables")
     graph_vectors_ref: SearchAssetRef = SearchAssetRef(kind="graph_vector_index")
+    language_model: str | None = None
 
     @property
     def required_assets(self) -> frozenset[SearchAssetRef]:
@@ -58,6 +66,13 @@ class RerankSearchEngine:
             else fused[: request.top_k]
         )
         used_reranker = reranker is not None and bool(fused)
+        answer, answer_metadata = await _generate_answer(
+            context=context,
+            request=request,
+            results=tuple(reranked),
+            mode=self.mode,
+            language_model=self.language_model,
+        )
 
         trace = ()
         if request.trace:
@@ -81,16 +96,46 @@ class RerankSearchEngine:
         return QueryResponse(
             mode=self.mode,
             results=tuple(reranked),
+            answer=answer,
+            citations=citations_from_results(reranked),
             trace=trace,
             metadata={
                 "candidate_modes": self.candidate_modes,
                 "candidate_count": len(fused),
                 "used_reranker": used_reranker,
                 "reranker_model": getattr(reranker, "model_name", None),
+                **answer_metadata,
             },
         )
 
 
+async def _generate_answer(
+    *,
+    context: QueryContext,
+    request: QueryRequest,
+    results: tuple[QueryResult, ...],
+    mode: str,
+    language_model: str | None,
+) -> tuple[str | None, dict[str, object]]:
+    if not should_generate_answer(request):
+        return None, {"answer_generation": "disabled"}
+    model = optional_language_model_from_context(context, language_model)
+    if model is None:
+        return None, {
+            "answer_generation": "missing_language_model",
+            "answer_generation_requested": True,
+        }
+    answer = await answer_from_results_with_prompt(
+        model,
+        query=request.text,
+        results=results,
+        prompt=rerank_answer_prompt(request.text, results),
+        trace_context={"query_mode": mode, "stage": "answer_generation"},
+    )
+    return answer or None, {
+        "answer_generation": "generated" if answer else "empty",
+        "answer_model": model.model_name,
+    }
 async def _rerank_results(
     reranker: RerankModelProtocol,
     request: QueryRequest,

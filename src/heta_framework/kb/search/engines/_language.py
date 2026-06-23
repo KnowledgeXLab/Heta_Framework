@@ -8,6 +8,8 @@ from typing import Any
 
 from heta_framework.common.models import ModelOptions, ModelRequest
 from heta_framework.common.models.protocols import LanguageModelProtocol
+from heta_framework.kb.components import MissingComponentError
+from heta_framework.kb.search.types import QueryRequest
 from heta_framework.kb.search.types import QueryResult
 from heta_framework.kb.steps.types import model_ref
 
@@ -28,6 +30,27 @@ def language_model_from_context(context: object, name: str | None) -> LanguageMo
     """Load a language model from a query context."""
     recipe = getattr(context, "recipe")
     return require_language_model(recipe.get_component(model_ref("language", name)))
+
+
+def optional_language_model_from_context(
+    context: object,
+    name: str | None,
+) -> LanguageModelProtocol | None:
+    """Load a language model from context, returning None when it is absent."""
+    recipe = getattr(context, "recipe")
+    try:
+        component = recipe.get_component(model_ref("language", name))
+    except MissingComponentError:
+        return None
+    return require_language_model(component)
+
+
+def should_generate_answer(request: QueryRequest, *, default: bool = False) -> bool:
+    """Return whether this query should synthesize an answer."""
+    value = request.options.get("generate_answer")
+    if isinstance(value, bool):
+        return value
+    return default
 
 
 async def invoke_json(
@@ -84,6 +107,34 @@ async def answer_from_results(
         )
     )
     return result.text
+
+
+async def answer_from_results_with_prompt(
+    language_model: LanguageModelProtocol,
+    *,
+    query: str,
+    results: tuple[QueryResult, ...],
+    prompt: str,
+    trace_context: dict[str, Any],
+) -> str:
+    """Generate an answer from results using a mode-specific prompt."""
+    result = await language_model.invoke(
+        ModelRequest(
+            prompt=prompt,
+            options=ModelOptions(temperature=0.1),
+            trace_context=trace_context,
+        )
+    )
+    return result.text
+
+
+def numbered_context(results: tuple[QueryResult, ...]) -> str:
+    """Render query results as citation-numbered context."""
+    if not results:
+        return "No relevant context was retrieved."
+    return "\n\n".join(
+        f"[{index}] {result.text}" for index, result in enumerate(results, start=1)
+    )
 
 
 def parse_json_object(text: str) -> Any:

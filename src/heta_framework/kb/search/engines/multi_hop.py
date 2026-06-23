@@ -9,7 +9,9 @@ from heta_framework.kb.search.engines._language import (
     answer_from_results,
     invoke_json,
     language_model_from_context,
+    should_generate_answer,
 )
+from heta_framework.kb.search.engines._provenance import citations_from_results
 from heta_framework.kb.search.engines._ranking import deduplicate_results
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
@@ -53,6 +55,7 @@ class MultiHopSearchEngine:
         round_reports: list[dict[str, object]] = []
         issues: list[dict[str, object]] = []
         max_rounds = _max_rounds(request, self.max_rounds)
+        generate_answer = should_generate_answer(request, default=True)
 
         for round_index in range(1, max_rounds + 1):
             base_response = await context.query(
@@ -129,16 +132,20 @@ class MultiHopSearchEngine:
                     )
                 )
             if judgment.get("judge") is True and isinstance(judgment.get("answer"), str):
+                final_results = deduplicate_results(gathered_results)[: request.top_k]
+                answer = str(judgment["answer"]).strip() if generate_answer else None
                 return QueryResponse(
                     mode=self.mode,
-                    results=deduplicate_results(gathered_results)[: request.top_k],
-                    answer=str(judgment["answer"]).strip(),
+                    results=final_results,
+                    answer=answer,
+                    citations=citations_from_results(final_results),
                     trace=tuple(trace_events),
                     metadata={
                         "base_mode": self.base_mode,
                         "rounds": round_index,
                         "round_reports": tuple(round_reports),
                         "issues": tuple(issues),
+                        "answer_generation": "generated" if answer else "disabled",
                     },
                 )
 
@@ -147,27 +154,30 @@ class MultiHopSearchEngine:
                 current_query = next_query.strip()
 
         final_results = deduplicate_results(gathered_results)[: request.top_k]
-        fallback_answer = await answer_from_results(
-            language_model,
-            query=request.text,
-            results=final_results,
-            trace_context={
-                "query_mode": "heta_multihop_search",
-                "stage": "fallback_answer",
-            },
-        )
+        fallback_answer = ""
+        if generate_answer:
+            fallback_answer = await answer_from_results(
+                language_model,
+                query=request.text,
+                results=final_results,
+                trace_context={
+                    "query_mode": "heta_multihop_search",
+                    "stage": "fallback_answer",
+                },
+            )
         issues.append(
             {
                 "code": "answer_not_confirmed",
                 "message": "Maximum rounds completed without a confirmed answer.",
                 "round": max_rounds,
-                "action": "generated_fallback_answer",
+                "action": "generated_fallback_answer" if generate_answer else "returned_results",
             }
         )
         return QueryResponse(
             mode=self.mode,
             results=final_results,
             answer=fallback_answer or None,
+            citations=citations_from_results(final_results),
             trace=tuple(trace_events),
             metadata={
                 "base_mode": self.base_mode,
@@ -175,6 +185,7 @@ class MultiHopSearchEngine:
                 "round_reports": tuple(round_reports),
                 "issues": tuple(issues),
                 "fallback": True,
+                "answer_generation": "generated" if fallback_answer else "disabled",
             },
         )
 

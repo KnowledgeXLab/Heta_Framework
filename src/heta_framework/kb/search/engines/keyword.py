@@ -8,6 +8,13 @@ from typing import Any
 
 from heta_framework.common.stores.sql import SQLStoreProtocol
 from heta_framework.kb.search.assets import SearchAsset, SearchAssetRef
+from heta_framework.kb.search.engines._language import (
+    answer_from_results_with_prompt,
+    optional_language_model_from_context,
+    should_generate_answer,
+)
+from heta_framework.kb.search.engines.answer_prompts import keyword_answer_prompt
+from heta_framework.kb.search.engines._provenance import chunk_source, citations_from_results
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 from heta_framework.kb.steps.types import ComponentRef, store_ref
@@ -19,6 +26,7 @@ class KeywordSearchEngine:
 
     mode: str = "keyword_search"
     asset_ref: SearchAssetRef = SearchAssetRef(kind="chunk_text_index")
+    language_model: str | None = None
 
     @property
     def required_assets(self) -> frozenset[SearchAssetRef]:
@@ -49,6 +57,13 @@ class KeywordSearchEngine:
             )
 
         results = tuple(_row_to_result(row, asset=asset, dialect=dialect) for row in rows)
+        answer, answer_metadata = await _generate_answer(
+            context=context,
+            request=request,
+            results=results,
+            mode=self.mode,
+            language_model=self.language_model,
+        )
         trace = ()
         if request.trace:
             trace = (
@@ -66,11 +81,40 @@ class KeywordSearchEngine:
         return QueryResponse(
             mode=self.mode,
             results=results,
+            answer=answer,
+            citations=citations_from_results(results),
             trace=trace,
-            metadata={"table": table, "dialect": dialect},
+            metadata={"table": table, "dialect": dialect, **answer_metadata},
         )
 
 
+async def _generate_answer(
+    *,
+    context: QueryContext,
+    request: QueryRequest,
+    results: tuple[QueryResult, ...],
+    mode: str,
+    language_model: str | None,
+) -> tuple[str | None, dict[str, object]]:
+    if not should_generate_answer(request):
+        return None, {"answer_generation": "disabled"}
+    model = optional_language_model_from_context(context, language_model)
+    if model is None:
+        return None, {
+            "answer_generation": "missing_language_model",
+            "answer_generation_requested": True,
+        }
+    answer = await answer_from_results_with_prompt(
+        model,
+        query=request.text,
+        results=results,
+        prompt=keyword_answer_prompt(request.text, results),
+        trace_context={"query_mode": mode, "stage": "answer_generation"},
+    )
+    return answer or None, {
+        "answer_generation": "generated" if answer else "empty",
+        "answer_model": model.model_name,
+    }
 def _postgres_query(table: str) -> str:
     _validate_identifier(table, field_name="table")
     return f"""
@@ -112,17 +156,19 @@ def _generic_query(table: str) -> str:
 
 def _row_to_result(row: dict[str, Any], *, asset: SearchAsset, dialect: str) -> QueryResult:
     metadata = _metadata_from_json(row.get("metadata_json"))
-    source = dict(metadata.get("source") or {})
-    source.update(
-        {
-            "document_id": row.get("document_id"),
-            "source_key": row.get("source_id"),
-            "source_chunk": _source_chunk_ids(row.get("source_chunk")),
-        }
+    source_metadata = metadata.get("source")
+    source_metadata = source_metadata if isinstance(source_metadata, dict) else {}
+    source = chunk_source(
+        document_id=row.get("document_id"),
+        object_key=row.get("source_id") or source_metadata.get("key"),
+        object_name=source_metadata.get("name"),
+        object_type=source_metadata.get("file_type"),
+        chunk_ids=_source_chunk_ids(row.get("source_chunk")) or (row.get("chunk_id"),),
+        page_index=metadata.get("page_index"),
+        chunk_index=metadata.get("chunk_index"),
+        token_start=metadata.get("token_start"),
+        token_end=metadata.get("token_end"),
     )
-    for key in ("page_index", "chunk_index", "token_start", "token_end"):
-        if key in metadata:
-            source[key] = metadata[key]
     return QueryResult(
         id=str(row["chunk_id"]),
         text=str(row["content_text"]),
