@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Mapping
 
 from heta_framework.common.models import EmbeddingRequest
 from heta_framework.common.models.protocols import EmbeddingModelProtocol
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
+from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
 from heta_framework.kb.chunking import ChunkEmbedding, ParsedChunk
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, model_ref, store_ref
@@ -69,6 +71,16 @@ class EmbedChunks:
             artifacts=frozenset({"embed_chunks_result", "chunk_embedding_keys"})
         )
 
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return embedding objects produced by this step."""
+        return StepCleanupPlan(
+            object_key_targets(
+                artifacts,
+                "chunk_embedding_keys",
+                component=store_ref("objects", self.config.object_store).key,
+            )
+        )
+
     async def run(self, context: StepContextProtocol) -> None:
         """Run the embedding step and store ChunkEmbedding JSON objects."""
         object_store = _require_object_store(
@@ -82,9 +94,23 @@ class EmbedChunks:
         chunks = [ParsedChunk.from_json(await object_store.get(key)) for key in chunk_keys]
         embedding_keys: list[str] = []
         dimension = 0
+        chunks_to_embed: list[ParsedChunk] = []
 
-        for start in range(0, len(chunks), self.config.batch_size):
-            batch = chunks[start : start + self.config.batch_size]
+        for chunk in chunks:
+            key = join_object_key(self.config.embeddings_prefix, f"{chunk.chunk_id}.json")
+            if await object_store.exists(key):
+                embedding = ChunkEmbedding.from_json(await object_store.get(key))
+                if embedding.document_id != chunk.document_id:
+                    raise ValueError(f"embedding document_id mismatch for chunk: {chunk.chunk_id}")
+                if embedding.dimension <= 0:
+                    raise ValueError(f"embedding dimension must be positive for chunk: {chunk.chunk_id}")
+                dimension = embedding.dimension
+                embedding_keys.append(key)
+                continue
+            chunks_to_embed.append(chunk)
+
+        for start in range(0, len(chunks_to_embed), self.config.batch_size):
+            batch = chunks_to_embed[start : start + self.config.batch_size]
             result = await embedding_model.embed(
                 EmbeddingRequest(
                     texts=[chunk.text for chunk in batch],

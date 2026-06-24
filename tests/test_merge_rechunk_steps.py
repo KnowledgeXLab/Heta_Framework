@@ -335,9 +335,9 @@ def test_persist_chunks_writes_rechunked_chunks_to_sql(tmp_path):
     async def run():
         await object_store.put("rechunked/chunk_sql.json", chunk.to_json_bytes())
         context.set_artifact("rechunked_chunk_keys", ("rechunked/chunk_sql.json",))
-        await PersistChunks(
-            PersistChunksConfig(table_names=ChunkTableNames(chunks="chunks_test"))
-        ).run(context)
+        step = PersistChunks(PersistChunksConfig(table_names=ChunkTableNames(chunks="chunks_test")))
+        await step.run(context)
+        await step.run(context)
         rows = await sql_store.fetch_all(
             "SELECT chunk_id, content_text, source_chunk FROM chunks_test"
         )

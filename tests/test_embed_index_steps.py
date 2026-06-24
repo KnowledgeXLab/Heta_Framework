@@ -10,7 +10,7 @@ from heta_framework.common.models import EmbeddingRequest, EmbeddingResult  # no
 from heta_framework.common.stores import InMemoryVectorStore, LocalObjectStore  # noqa: E402
 from heta_framework.common.stores.vector import VectorQuery  # noqa: E402
 from heta_framework.kb.chunking import ChunkEmbedding, ParsedChunk  # noqa: E402
-from heta_framework.kb.parsing import DocumentParserRegistry, TextParser  # noqa: E402
+from heta_framework.kb.parsing import DocumentParserRegistry, ParsedSource, TextParser  # noqa: E402
 from heta_framework.kb.steps import (  # noqa: E402
     ChunkVectorCollections,
     EmbedChunks,
@@ -39,11 +39,15 @@ class FakeContext:
 
 
 class FakeEmbeddingModel:
+    def __init__(self):
+        self.requests = []
+
     @property
     def model_name(self):
         return "fake-embedding"
 
     async def embed(self, request: EmbeddingRequest) -> EmbeddingResult:
+        self.requests.append(request)
         vectors = []
         for text in request.texts:
             vectors.append([float(len(text)), float(text.count("a")), 1.0])
@@ -146,6 +150,50 @@ def test_embed_chunks_writes_chunk_embedding_json(tmp_path):
     assert embedding.model_name == "fake-embedding"
     assert embedding.dimension == 3
     assert embedding.vector == [5.0, 2.0, 1.0]
+
+
+def test_embed_chunks_reuses_existing_embedding_json(tmp_path):
+    object_store = LocalObjectStore(tmp_path)
+    model = FakeEmbeddingModel()
+    context = FakeContext(
+        {
+            "stores.objects": object_store,
+            "models.embedding": model,
+        }
+    )
+    chunk = ParsedChunk(
+        chunk_id="chunk_cached",
+        document_id="doc_cached",
+        source=ParsedSource(
+            key="raw/doc.txt",
+            name="doc.txt",
+            file_type="txt",
+            content_sha256="a" * 64,
+        ),
+        page_index=0,
+        chunk_index=0,
+        text="cached embedding",
+        token_start=0,
+        token_end=16,
+    )
+    embedding = ChunkEmbedding(
+        chunk_id=chunk.chunk_id,
+        document_id=chunk.document_id,
+        model_name="fake-embedding",
+        vector=[1.0, 2.0, 3.0],
+        dimension=3,
+    )
+
+    async def run():
+        await object_store.put("chunks/chunk_cached.json", chunk.to_json_bytes())
+        await object_store.put("embeddings/chunk_cached.json", embedding.to_json_bytes())
+        context.set_artifact("chunk_keys", ("chunks/chunk_cached.json",))
+        await EmbedChunks().run(context)
+
+    asyncio.run(run())
+
+    assert model.requests == []
+    assert context.artifacts["chunk_embedding_keys"] == ("embeddings/chunk_cached.json",)
 
 
 def test_index_vectors_rejects_missing_embedding(tmp_path):

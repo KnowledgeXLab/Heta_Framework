@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from heta_framework.common.models import EmbeddingRequest, ModelOptions, ModelRequest
 from heta_framework.common.models.protocols import EmbeddingModelProtocol, LanguageModelProtocol
@@ -17,6 +17,7 @@ from heta_framework.common.stores.vector import (
     VectorSearchResult,
     VectorStoreProtocol,
 )
+from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan, object_key_targets
 from heta_framework.kb.chunking import ChunkEmbedding, ParsedChunk, make_chunk_id
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, model_ref, store_ref
@@ -185,6 +186,25 @@ class MergeChunks:
         """Return artifacts produced by this step."""
         return StepCapabilities(
             artifacts=frozenset({"merge_chunks_result", "merged_chunk_keys"})
+        )
+
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return merged chunk objects and merge vector collection."""
+        object_store_ref = store_ref("objects", self.config.object_store).key
+        vector_store_ref = store_ref("vector", self.config.vector_store).key
+        return StepCleanupPlan(
+            (
+                *object_key_targets(
+                    artifacts,
+                    "merged_chunk_keys",
+                    component=object_store_ref,
+                ),
+                CleanupTarget(
+                    kind="vector_collection",
+                    value=self.config.merge_collection,
+                    component=vector_store_ref,
+                ),
+            )
         )
 
     async def run(self, context: StepContextProtocol) -> None:

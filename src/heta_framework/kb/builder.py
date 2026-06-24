@@ -8,7 +8,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from heta_framework.kb.recipe import KnowledgeRecipe
-from heta_framework.kb.state import RecipeRunRecord, RecipeRunResult, StepRunRecord
+from heta_framework.kb.state import RecipeRunRecord, RecipeRunResult, RecipeRunState, StepRunRecord
 from heta_framework.kb.steps import (
     ComponentRef,
     StepCapabilities,
@@ -62,6 +62,7 @@ class KnowledgeBaseBuilder:
         *,
         initial_artifacts: Mapping[str, Any] | None = None,
         previous_record: RecipeRunRecord | None = None,
+        run_state: RecipeRunState | None = None,
     ) -> RecipeRunResult:
         """Run a knowledge recipe and return a build result."""
         artifacts: dict[str, Any] = {}
@@ -72,20 +73,22 @@ class KnowledgeBaseBuilder:
 
         recipe.require_valid(initial_artifacts=artifacts.keys())
 
-        run_id = f"run_{uuid4().hex}"
         started_at = _utc_now()
+        state = run_state or RecipeRunState.start(
+            run_id=f"run_{uuid4().hex}",
+            started_at=started_at,
+        )
         context = StepExecutionContext(recipe=recipe, artifacts=artifacts)
         steps = recipe.expanded_steps()
         previous_success = _previous_success_records(previous_record)
 
-        step_records: list[StepRunRecord] = []
         all_issues: list[StepIssue] = []
         run_status = "succeeded"
 
         for index, step in enumerate(steps):
             previous_step = previous_success.get((index, step.name, type(step).__name__))
             if self.config.skip_succeeded_steps and previous_step is not None:
-                step_records.append(
+                await state.skip_step(
                     StepRunRecord(
                         index=index,
                         step_name=step.name,
@@ -98,13 +101,29 @@ class KnowledgeBaseBuilder:
                         input_artifacts=tuple(sorted(step.requirements.artifacts)),
                         output_artifacts=previous_step.output_artifacts,
                         issues=previous_step.issues,
-                    )
+                    ),
+                    artifacts=context.artifacts,
                 )
                 all_issues.extend(previous_step.issues)
                 continue
 
             before_artifacts = set(context.artifacts)
             step_started_at = _utc_now()
+            await state.start_step(
+                StepRunRecord(
+                    index=index,
+                    step_name=step.name,
+                    step_type=type(step).__name__,
+                    status="running",
+                    started_at=step_started_at,
+                    finished_at=None,
+                    requirements=step.requirements,
+                    capabilities=step.capabilities,
+                    input_artifacts=tuple(sorted(step.requirements.artifacts)),
+                    output_artifacts=(),
+                ),
+                artifacts=context.artifacts,
+            )
             try:
                 await step.run(context)
             except Exception as exc:  # noqa: BLE001
@@ -123,7 +142,7 @@ class KnowledgeBaseBuilder:
                     issues=(),
                     error=f"{type(exc).__name__}: {exc}",
                 )
-                step_records.append(step_record)
+                await state.finish_step(step_record, artifacts=context.artifacts)
                 run_status = "failed"
                 if self.config.stop_on_error:
                     break
@@ -136,7 +155,7 @@ class KnowledgeBaseBuilder:
                 output_artifacts,
             )
             all_issues.extend(step_issues)
-            step_records.append(
+            await state.finish_step(
                 StepRunRecord(
                     index=index,
                     step_name=step.name,
@@ -149,16 +168,20 @@ class KnowledgeBaseBuilder:
                     input_artifacts=tuple(sorted(step.requirements.artifacts)),
                     output_artifacts=output_artifacts,
                     issues=step_issues,
-                )
+                ),
+                artifacts=context.artifacts,
+                issues=step_issues,
             )
 
-        capabilities = _capabilities_from_step_records(step_records)
-        record = RecipeRunRecord(
-            run_id=run_id,
+        capabilities = _capabilities_from_step_records(state.step_records)
+        finished_at = _utc_now()
+        await state.finish_run(
             status=run_status,  # type: ignore[arg-type]
-            started_at=started_at,
-            finished_at=_utc_now(),
-            step_records=tuple(step_records),
+            finished_at=finished_at,
+            artifacts=context.artifacts,
+            issues=tuple(all_issues),
+        )
+        record = state.to_record(
             artifacts=dict(context.artifacts),
             capabilities=capabilities,
             issues=tuple(all_issues),

@@ -78,6 +78,34 @@ error
 
 这些记录是 build report、debug 和断点恢复的基础。
 
+## Run State
+
+`RecipeRunState` 是一次构建过程中的可更新状态。
+它和 `RecipeRunRecord` 的区别是：
+
+```text
+RecipeRunState
+    构建过程中持续更新
+    可以落盘到 ObjectStore
+    记录 current_step、step_records、artifacts、issues
+
+RecipeRunRecord
+    构建结束后的不可变快照
+    用于 manifest、build report 和 query capability
+```
+
+当 `KnowledgeBase.create()` 为 Builder 传入 `run_state` 时，Builder 会在这些时机更新 state：
+
+```text
+step started
+step succeeded
+step failed
+run finished
+```
+
+因此即使 Python 进程被 kill、机器重启或外部 API 中断，ObjectStore 中仍然保留最近一次
+run 的状态。
+
 ## Resume
 
 Builder 支持跳过之前已经成功的 steps：
@@ -96,6 +124,20 @@ result = await builder.build(
 ```
 
 恢复时，Builder 会复用 `previous_record.artifacts`，并跳过匹配且状态为 `succeeded` 的 step。
+
+在 `KnowledgeBase.create()` 中，这个过程会自动发生：
+
+```text
+1. 从 _heta/knowledge_bases/{name}/latest_run.json 找到最近 run
+2. 加载 runs/{run_id}/state.json
+3. 转换为 previous_record
+4. 配置 skip_succeeded_steps=True
+5. 从第一个未成功 step 继续执行
+```
+
+Step 是否能避免重复外部调用，还取决于 step 自身的 artifact 幂等设计。
+例如 `EmbedChunks` 会复用已经存在的 embedding artifact，`ExtractEntities` 和
+`ExtractRelations` 会复用已经存在的 chunk 级抽取结果。
 
 ## Failure Behavior
 

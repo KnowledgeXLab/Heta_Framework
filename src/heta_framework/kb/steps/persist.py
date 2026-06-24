@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Literal
+from typing import Any, Literal, Mapping
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.sql import SQLStoreProtocol
+from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
 from heta_framework.kb.chunking import ParsedChunk
 from heta_framework.kb.search import SearchAsset
 from heta_framework.kb.steps.protocols import StepContextProtocol
@@ -99,6 +100,18 @@ class PersistChunks:
             ),
         )
 
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return SQL tables produced by this step."""
+        return StepCleanupPlan(
+            (
+                CleanupTarget(
+                    kind="sql_table",
+                    value=self.config.table_names.chunks,
+                    component=store_ref("sql", self.config.sql_store).key,
+                ),
+            )
+        )
+
     async def run(self, context: StepContextProtocol) -> None:
         """Create the chunk table if needed and insert chunks."""
         object_store = _require_object_store(
@@ -118,6 +131,10 @@ class PersistChunks:
                 await tx.execute(statement)
             for chunk in chunks:
                 await tx.execute(
+                    _delete_statement(self.config.table_names.chunks),
+                    {"chunk_id": chunk.chunk_id},
+                )
+                await tx.execute(
                     _insert_statement(self.config.table_names.chunks, self.config.dialect),
                     _chunk_parameters(chunk),
                 )
@@ -132,7 +149,7 @@ def _create_table_statements(table: str, dialect: SQLDialect) -> tuple[str, ...]
             f"""
             CREATE TABLE IF NOT EXISTS {table} (
                 id SERIAL PRIMARY KEY,
-                chunk_id VARCHAR(128),
+                chunk_id VARCHAR(128) UNIQUE,
                 document_id TEXT,
                 content_text TEXT,
                 content_tsv tsvector,
@@ -148,7 +165,7 @@ def _create_table_statements(table: str, dialect: SQLDialect) -> tuple[str, ...]
     return (
         f"""
         CREATE TABLE IF NOT EXISTS {table} (
-            chunk_id VARCHAR(128),
+            chunk_id VARCHAR(128) PRIMARY KEY,
             document_id VARCHAR(256),
             content_text TEXT,
             source_id TEXT,
@@ -182,6 +199,10 @@ def _insert_statement(table: str, dialect: SQLDialect) -> str:
     VALUES
     (:chunk_id, :document_id, :content_text, :source_id, :source_chunk, :metadata_json)
     """
+
+
+def _delete_statement(table: str) -> str:
+    return f"DELETE FROM {table} WHERE chunk_id = :chunk_id"
 
 
 def _chunk_parameters(chunk: ParsedChunk) -> dict[str, str]:

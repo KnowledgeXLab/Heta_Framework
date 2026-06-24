@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Mapping
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
+from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
 from heta_framework.kb.chunking import ParsedChunk, make_chunk_id, split_text
 from heta_framework.kb.parsing import ParsedDocument
 from heta_framework.kb.steps.protocols import StepContextProtocol
@@ -71,6 +73,16 @@ class SplitDocuments:
     def capabilities(self) -> StepCapabilities:
         """Return artifacts produced by this step."""
         return StepCapabilities(artifacts=frozenset({"split_documents_result", "chunk_keys"}))
+
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return chunk objects produced by this step."""
+        return StepCleanupPlan(
+            object_key_targets(
+                artifacts,
+                "chunk_keys",
+                component=store_ref("objects", self.config.object_store).key,
+            )
+        )
 
     async def run(self, context: StepContextProtocol) -> None:
         """Run the split step and store chunks as JSON bytes."""

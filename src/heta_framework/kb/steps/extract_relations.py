@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from heta_framework.common.models import ModelOptions, ModelRequest
 from heta_framework.common.models.protocols import LanguageModelProtocol
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
+from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
 from heta_framework.kb.chunking import ParsedChunk
 from heta_framework.kb.graphing import ExtractedEntity, ExtractedRelation, make_relation_id
 from heta_framework.kb.graphing.prompts import (
@@ -118,6 +119,16 @@ class ExtractRelations:
             artifacts=frozenset({"extract_relations_result", self.config.relation_keys_artifact})
         )
 
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return relation objects produced by this step."""
+        return StepCleanupPlan(
+            object_key_targets(
+                artifacts,
+                self.config.relation_keys_artifact,
+                component=store_ref("objects", self.config.object_store).key,
+            )
+        )
+
     async def run(self, context: StepContextProtocol) -> None:
         """Run relation extraction and store ExtractedRelation JSON objects."""
         object_store = _require_object_store(
@@ -140,6 +151,15 @@ class ExtractRelations:
             if len(chunk_entities) < 2:
                 skipped_chunk_ids.append(chunk.chunk_id)
                 continue
+            existing_keys = await _existing_chunk_relation_keys(
+                object_store,
+                prefix=self.config.relations_prefix,
+                chunk_id=chunk.chunk_id,
+            )
+            if existing_keys:
+                relation_keys.extend(existing_keys)
+                continue
+
             relations = await _extract_relations_from_chunk(
                 chunk,
                 chunk_entities,
@@ -166,6 +186,21 @@ class ExtractRelations:
         )
         context.set_artifact("extract_relations_result", result)
         context.set_artifact(self.config.relation_keys_artifact, result.relation_keys)
+
+
+async def _existing_chunk_relation_keys(
+    object_store: ObjectStoreProtocol,
+    *,
+    prefix: str,
+    chunk_id: str,
+) -> tuple[str, ...]:
+    chunk_prefix = join_object_key(prefix, chunk_id)
+    marker = f"{chunk_prefix}/"
+    return tuple(
+        item.key
+        for item in sorted(await object_store.list(chunk_prefix), key=lambda value: value.key)
+        if item.key.startswith(marker) and item.key.endswith(".json")
+    )
 
 
 async def _extract_relations_from_chunk(

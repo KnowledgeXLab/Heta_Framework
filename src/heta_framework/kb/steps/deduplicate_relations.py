@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from heta_framework.common.models import EmbeddingRequest, ModelOptions, ModelRequest
 from heta_framework.common.models.protocols import EmbeddingModelProtocol, LanguageModelProtocol
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
+from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
 from heta_framework.kb.graphing import ExtractedRelation, make_deduplicated_relation_id
 from heta_framework.kb.graphing.prompts import (
     RELATION_DEDUPLICATION_PROMPT,
@@ -150,6 +151,16 @@ class DeduplicateRelations:
                     self.config.deduplicated_relation_keys_artifact,
                     "relation_id_mapping",
                 }
+            )
+        )
+
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return deduplicated relation objects produced by this step."""
+        return StepCleanupPlan(
+            object_key_targets(
+                artifacts,
+                self.config.deduplicated_relation_keys_artifact,
+                component=store_ref("objects", self.config.object_store).key,
             )
         )
 

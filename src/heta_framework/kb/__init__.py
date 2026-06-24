@@ -34,6 +34,14 @@ from heta_framework.kb.components import (
     KnowledgeStores,
     MissingComponentError,
 )
+from heta_framework.kb.cleanup import (
+    CleanupIssue,
+    CleanupTarget,
+    CleanupTargetKind,
+    KnowledgeBaseDeletePlan,
+    KnowledgeBaseDeleteResult,
+    StepCleanupPlan,
+)
 from heta_framework.kb.knowledge_base import KnowledgeBase
 from heta_framework.kb.manifests import (
     KnowledgeBaseManifest,
@@ -46,6 +54,7 @@ from heta_framework.kb.procedures import (
     KnowledgeProcedureProtocol,
 )
 from heta_framework.kb.recipe import KnowledgeRecipe
+from heta_framework.kb.runtime import KnowledgeBaseAlreadyExistsError, KnowledgeBaseRuntime
 from heta_framework.kb.search import (
     QueryCitation,
     QueryContext,
@@ -62,6 +71,7 @@ from heta_framework.kb.search import (
 from heta_framework.kb.state import (
     RecipeRunRecord,
     RecipeRunResult,
+    RecipeRunState,
     RecipeRunStatus,
     StepRunRecord,
     StepRunStatus,
@@ -143,6 +153,9 @@ __all__ = [
     "BuildGraphResult",
     "ChunkTableNames",
     "ChunkVectorCollections",
+    "CleanupIssue",
+    "CleanupTarget",
+    "CleanupTargetKind",
     "ComponentRef",
     "DeduplicateEntities",
     "DeduplicateEntitiesConfig",
@@ -176,9 +189,13 @@ __all__ = [
     "ImageParser",
     "ImageParserConfig",
     "KnowledgeBase",
+    "KnowledgeBaseAlreadyExistsError",
     "KnowledgeBaseBuilder",
     "KnowledgeBaseBuilderConfig",
+    "KnowledgeBaseDeletePlan",
+    "KnowledgeBaseDeleteResult",
     "KnowledgeBaseManifest",
+    "KnowledgeBaseRuntime",
     "KnowledgeModels",
     "KnowledgeParsers",
     "HetaGraphProcedure",
@@ -208,6 +225,7 @@ __all__ = [
     "SplitDocumentsResult",
     "RecipeRunRecord",
     "RecipeRunResult",
+    "RecipeRunState",
     "RecipeRunStatus",
     "RecipeValidationError",
     "RecipeValidationIssue",
@@ -233,6 +251,7 @@ __all__ = [
     "SheetParser",
     "SheetParserConfig",
     "StepCapabilities",
+    "StepCleanupPlan",
     "StepContextProtocol",
     "StepExecutionContext",
     "StepIssue",

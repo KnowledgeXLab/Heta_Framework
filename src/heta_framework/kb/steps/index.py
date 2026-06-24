@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any, Mapping
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.vector import (
@@ -10,6 +11,7 @@ from heta_framework.common.stores.vector import (
     VectorRecord,
     VectorStoreProtocol,
 )
+from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
 from heta_framework.kb.chunking import ChunkEmbedding, ParsedChunk
 from heta_framework.kb.search import SearchAsset
 from heta_framework.kb.steps.protocols import StepContextProtocol
@@ -105,6 +107,18 @@ class IndexVectors:
                     },
                 ),
             ),
+        )
+
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return vector collections produced by this step."""
+        return StepCleanupPlan(
+            (
+                CleanupTarget(
+                    kind="vector_collection",
+                    value=self.config.collection_names.chunks,
+                    component=store_ref("vector", self.config.vector_store).key,
+                ),
+            )
         )
 
     async def run(self, context: StepContextProtocol) -> None:

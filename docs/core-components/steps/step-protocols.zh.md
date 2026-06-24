@@ -73,6 +73,8 @@ class KnowledgeStepProtocol(Protocol):
     def capabilities(self) -> StepCapabilities: ...
 
     async def run(self, context: StepContextProtocol) -> None: ...
+
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan: ...
 ```
 
 | 成员 | 说明 |
@@ -81,8 +83,11 @@ class KnowledgeStepProtocol(Protocol):
 | `requirements` | 运行前需要的组件、artifacts 或 query modes。 |
 | `capabilities` | 完成后提供的 artifacts 或 query modes。 |
 | `run` | 执行 step。 |
+| `cleanup_plan` | 声明这个 step 创建的持久化资源，供 `KnowledgeBase.delete()` 统一删除。 |
 
-`requirements` 和 `capabilities` 是后续执行器做依赖校验和能力开放的基础。
+`requirements` 和 `capabilities` 是执行器做依赖校验和能力开放的基础。
+`cleanup_plan` 不执行删除，只返回由当前 step 负责声明的派生产物。
+原始输入，例如 ObjectStore 中的 `raw/` 文件，不应该进入 cleanup plan。
 
 ## Component References
 

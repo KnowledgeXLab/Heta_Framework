@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Mapping
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
+from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
 from heta_framework.kb.chunking import ParsedChunk, get_text_encoding, make_chunk_id, split_text
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, store_ref
@@ -79,6 +81,16 @@ class RechunkDocuments:
         """Return artifacts produced by this step."""
         return StepCapabilities(
             artifacts=frozenset({"rechunk_documents_result", "rechunked_chunk_keys"})
+        )
+
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return rechunked chunk objects produced by this step."""
+        return StepCleanupPlan(
+            object_key_targets(
+                artifacts,
+                "rechunked_chunk_keys",
+                component=store_ref("objects", self.config.object_store).key,
+            )
         )
 
     async def run(self, context: StepContextProtocol) -> None:

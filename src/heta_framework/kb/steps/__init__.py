@@ -66,6 +66,7 @@ from heta_framework.kb.steps.types import (
     parser_ref,
     store_ref,
 )
+from heta_framework.kb.cleanup import StepCleanupPlan
 
 __all__ = [
     "BuildGraph",
@@ -117,6 +118,7 @@ __all__ = [
     "SplitDocumentsConfig",
     "SplitDocumentsResult",
     "StepCapabilities",
+    "StepCleanupPlan",
     "StepIssue",
     "StepContextProtocol",
     "StepRequirements",

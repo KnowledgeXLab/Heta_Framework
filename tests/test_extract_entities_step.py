@@ -120,6 +120,41 @@ def test_extract_entities_writes_entity_json(tmp_path):
     assert context.artifacts["extract_entities_result"].entity_count == 1
 
 
+def test_extract_entities_reuses_existing_entity_json(tmp_path):
+    object_store = LocalObjectStore(tmp_path)
+    model = FakeLanguageModel([])
+    context = FakeContext(
+        {
+            "stores.objects": object_store,
+            "models.language": model,
+        }
+    )
+
+    async def run():
+        chunk = _chunk()
+        entity = ExtractedEntity(
+            entity_id="entity_cached",
+            chunk_id=chunk.chunk_id,
+            document_id=chunk.document_id,
+            name="上海市",
+            type="客观实体",
+            subtype="行政区划",
+            description="上海市是中华人民共和国直辖市。",
+            attributes={},
+            source_chunk_ids=(chunk.chunk_id,),
+        )
+        await object_store.put("chunks/chunk_1.json", chunk.to_json_bytes())
+        await object_store.put("entities/chunk_1/entity_cached.json", entity.to_json_bytes())
+        context.set_artifact("chunk_keys", ("chunks/chunk_1.json",))
+        await ExtractEntities().run(context)
+
+    asyncio.run(run())
+
+    assert model.requests == []
+    assert context.artifacts["entity_keys"] == ("entities/chunk_1/entity_cached.json",)
+    assert context.artifacts["extract_entities_result"].entity_count == 1
+
+
 def test_extract_entities_uses_parent_chunk_ids_for_rechunked_input(tmp_path):
     object_store = LocalObjectStore(tmp_path)
     model = FakeLanguageModel(

@@ -5,9 +5,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from heta_framework.common.stores import LocalObjectStore  # noqa: E402
 from heta_framework.kb import (  # noqa: E402
     IssueSubject,
     KnowledgeBase,
+    KnowledgeBaseAlreadyExistsError,
     KnowledgeBaseBuilder,
     KnowledgeBaseBuilderConfig,
     KnowledgeModels,
@@ -15,6 +17,7 @@ from heta_framework.kb import (  # noqa: E402
     KnowledgeStores,
     MissingComponentError,
     RecipeValidationError,
+    StepCleanupPlan,
     StepCapabilities,
     StepIssue,
     StepRequirements,
@@ -60,6 +63,9 @@ class FakeStep:
             raise RuntimeError("boom")
         if self.output_key is not None:
             context.set_artifact(self.output_key, self.output_value)
+
+    def cleanup_plan(self, artifacts):
+        return StepCleanupPlan()
 
 
 @dataclass(frozen=True)
@@ -241,3 +247,99 @@ def test_knowledge_base_create_manifest_restore_and_resume():
     )
     assert restored.name == kb.name
     assert resumed.run_record.step_records[0].status == "skipped"
+
+
+def test_knowledge_base_create_persists_runtime_metadata(tmp_path):
+    object_store = LocalObjectStore(tmp_path / "objects")
+    step = FakeStep(
+        "write",
+        capabilities=StepCapabilities(artifacts=frozenset({"out"})),
+        output_key="out",
+        output_value=("artifact-key",),
+    )
+    recipe = KnowledgeRecipe(
+        stores=KnowledgeStores(objects=object_store),
+        steps=(step,),
+    )
+
+    kb = asyncio.run(KnowledgeBase.create(recipe=recipe, name="FAA Handbook"))
+
+    async def read_runtime():
+        latest = await object_store.get("_heta/knowledge_bases/faa_handbook/latest_run.json")
+        manifest_exists = await object_store.exists(
+            "_heta/knowledge_bases/faa_handbook/manifest.json"
+        )
+        state_exists = await object_store.exists(
+            f"_heta/knowledge_bases/faa_handbook/runs/{kb.run_record.run_id}/state.json"
+        )
+        record_exists = await object_store.exists(
+            f"_heta/knowledge_bases/faa_handbook/runs/{kb.run_record.run_id}/record.json"
+        )
+        return latest, manifest_exists, state_exists, record_exists
+
+    latest, manifest_exists, state_exists, record_exists = asyncio.run(read_runtime())
+
+    assert b'"status":"succeeded"' in latest
+    assert manifest_exists is True
+    assert state_exists is True
+    assert record_exists is True
+
+
+def test_knowledge_base_create_rejects_existing_successful_kb(tmp_path):
+    object_store = LocalObjectStore(tmp_path / "objects")
+    step = FakeStep(
+        "write",
+        capabilities=StepCapabilities(artifacts=frozenset({"out"})),
+        output_key="out",
+        output_value=("artifact-key",),
+    )
+    recipe = KnowledgeRecipe(stores=KnowledgeStores(objects=object_store), steps=(step,))
+
+    asyncio.run(KnowledgeBase.create(recipe=recipe, name="papers"))
+
+    try:
+        asyncio.run(KnowledgeBase.create(recipe=recipe, name="papers"))
+    except KnowledgeBaseAlreadyExistsError as exc:
+        assert "papers" in str(exc)
+    else:
+        raise AssertionError("expected KnowledgeBaseAlreadyExistsError")
+
+
+def test_knowledge_base_create_resumes_unfinished_runtime_state(tmp_path):
+    object_store = LocalObjectStore(tmp_path / "objects")
+    step_a = FakeStep(
+        "a",
+        capabilities=StepCapabilities(artifacts=frozenset({"a"})),
+        output_key="a",
+        output_value=("a-key",),
+    )
+    step_b = FakeStep(
+        "b",
+        requirements=StepRequirements(artifacts=frozenset({"a"})),
+        capabilities=StepCapabilities(artifacts=frozenset({"b"})),
+        output_key="b",
+        output_value=("b-key",),
+        fail=True,
+    )
+    recipe = KnowledgeRecipe(
+        stores=KnowledgeStores(objects=object_store),
+        steps=(step_a, step_b),
+    )
+
+    failed = asyncio.run(KnowledgeBase.create(recipe=recipe, name="recoverable"))
+    assert failed.run_record.status == "failed"
+    assert step_a.run_count == 1
+    assert step_b.run_count == 1
+
+    step_b.fail = False
+    recovered = asyncio.run(KnowledgeBase.create(recipe=recipe, name="recoverable"))
+
+    assert recovered.run_record.status == "succeeded"
+    assert [record.status for record in recovered.run_record.step_records] == [
+        "succeeded",
+        "succeeded",
+    ]
+    assert step_a.run_count == 1
+    assert step_b.run_count == 2
+    assert recovered.run_record.artifacts["a"] == ["a-key"]
+    assert recovered.run_record.artifacts["b"] == ("b-key",)

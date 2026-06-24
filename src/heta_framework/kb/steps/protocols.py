@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Mapping, Protocol, runtime_checkable
 
+from heta_framework.kb.cleanup import StepCleanupPlan
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements
 
 
@@ -44,4 +45,8 @@ class KnowledgeStepProtocol(Protocol):
 
     async def run(self, context: StepContextProtocol) -> None:
         """Execute this step against a recipe context."""
+        ...
+
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return persistent resources produced by this step."""
         ...

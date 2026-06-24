@@ -19,6 +19,8 @@ from heta_framework.kb.parsing import (  # noqa: E402
     PdfParser,
     SheetParser,
     TextParser,
+    make_document_id,
+    make_parsed_source,
 )
 from heta_framework.kb.steps import ParseDocuments, ParseDocumentsConfig
 
@@ -71,6 +73,17 @@ class FakeExtractor:
         )
 
 
+class CountingTextParser:
+    supported_file_types = {"txt"}
+
+    def __init__(self):
+        self.parse_count = 0
+
+    async def parse(self, source, data):
+        self.parse_count += 1
+        return await TextParser().parse(source, data)
+
+
 def test_parse_documents_declares_requirements_and_capabilities():
     step = ParseDocuments()
 
@@ -115,6 +128,33 @@ def test_parse_documents_writes_parsed_documents(tmp_path):
     assert document.source.name == "readme.md"
     assert document.source.file_type == "md"
     assert document.pages[0].text == "# Heta\n\nParser step"
+
+
+def test_parse_documents_reuses_existing_parsed_document(tmp_path):
+    store = LocalObjectStore(tmp_path)
+    parser = CountingTextParser()
+    registry = DocumentParserRegistry([parser])
+    context = FakeContext(
+        {
+            "stores.objects": store,
+            "parsers.documents": registry,
+        }
+    )
+
+    async def run():
+        data = b"cached parse"
+        await store.put("raw/doc.txt", data)
+        source = make_parsed_source(key="raw/doc.txt", name="doc.txt", file_type="txt", data=data)
+        document_key = f"parsed/{make_document_id(source.content_sha256)}.json"
+        document = await TextParser().parse(source, data)
+        await store.put(document_key, document.to_json_bytes())
+        await ParseDocuments().run(context)
+        return document_key
+
+    expected_key = asyncio.run(run())
+
+    assert parser.parse_count == 0
+    assert context.artifacts["parsed_document_keys"] == (expected_key,)
 
 
 def test_parse_documents_routes_multiple_file_types(tmp_path):

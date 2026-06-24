@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from heta_framework.kb.steps import (  # noqa: E402
     KnowledgeStepProtocol,
+    StepCleanupPlan,
     StepCapabilities,
     StepRequirements,
     model_ref,
@@ -54,6 +55,9 @@ class FakeEmbedStep:
         context.get_component("models.embedding")
         chunks = context.get_artifact("chunks")
         context.set_artifact("embeddings", [f"embedding:{chunk}" for chunk in chunks])
+
+    def cleanup_plan(self, artifacts):
+        return StepCleanupPlan()
 
 
 def test_component_refs_have_stable_keys():

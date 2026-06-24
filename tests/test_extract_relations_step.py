@@ -152,6 +152,46 @@ def test_extract_relations_writes_relation_json(tmp_path):
     assert context.artifacts["extract_relations_result"].relation_count == 1
 
 
+def test_extract_relations_reuses_existing_relation_json(tmp_path):
+    object_store = LocalObjectStore(tmp_path)
+    model = FakeLanguageModel([])
+    context = FakeContext({"stores.objects": object_store, "models.language": model})
+
+    async def run():
+        chunk = _chunk()
+        relation = ExtractedRelation(
+            relation_id="relation_cached",
+            chunk_id=chunk.chunk_id,
+            document_id=chunk.document_id,
+            source_entity_id="entity_shanghai",
+            target_entity_id="entity_xuhui",
+            source_entity_name="上海市",
+            target_entity_name="徐汇区",
+            type="空间关系",
+            name="包含行政区",
+            description="徐汇区是上海市下辖的市辖区。",
+            attributes={},
+            source_chunk_ids=(chunk.chunk_id,),
+        )
+        await _put_chunk_and_entities(
+            object_store,
+            context,
+            chunk,
+            (_entity("entity_shanghai", "上海市"), _entity("entity_xuhui", "徐汇区")),
+        )
+        await object_store.put(
+            "relations/chunk_1/relation_cached.json",
+            relation.to_json_bytes(),
+        )
+        await ExtractRelations().run(context)
+
+    asyncio.run(run())
+
+    assert model.requests == []
+    assert context.artifacts["relation_keys"] == ("relations/chunk_1/relation_cached.json",)
+    assert context.artifacts["extract_relations_result"].relation_count == 1
+
+
 def test_extract_relations_uses_parent_chunk_ids_for_rechunked_input(tmp_path):
     object_store = LocalObjectStore(tmp_path)
     model = FakeLanguageModel(

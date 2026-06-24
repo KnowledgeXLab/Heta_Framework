@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, TypeVar
+from typing import Any, Mapping, TypeVar
 
 from heta_framework.common.models.protocols import EmbeddingModelProtocol, LanguageModelProtocol
 from heta_framework.common.stores.object import ObjectStoreProtocol
@@ -17,6 +17,7 @@ from heta_framework.common.stores.vector import (
     VectorStoreProtocol,
 )
 from heta_framework.kb.chunking import ParsedChunk
+from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
 from heta_framework.kb.graphing import ExtractedEntity, ExtractedRelation
 from heta_framework.kb.search import SearchAsset
 from heta_framework.kb.steps.graph_merge_prompts import (
@@ -214,6 +215,40 @@ class MergeGraphIntoStore:
                     },
                 ),
             ),
+        )
+
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return graph SQL tables and vector collections managed by this step."""
+        sql_store_ref = store_ref("sql", self.config.sql_store).key
+        vector_store_ref = store_ref("vector", self.config.vector_store).key
+        return StepCleanupPlan(
+            (
+                CleanupTarget(
+                    kind="sql_table",
+                    value=self.config.table_names.entities,
+                    component=sql_store_ref,
+                ),
+                CleanupTarget(
+                    kind="sql_table",
+                    value=self.config.table_names.relations,
+                    component=sql_store_ref,
+                ),
+                CleanupTarget(
+                    kind="sql_table",
+                    value=self.config.table_names.evidence,
+                    component=sql_store_ref,
+                ),
+                CleanupTarget(
+                    kind="vector_collection",
+                    value=self.config.vector_collections.entities,
+                    component=vector_store_ref,
+                ),
+                CleanupTarget(
+                    kind="vector_collection",
+                    value=self.config.vector_collections.relations,
+                    component=vector_store_ref,
+                ),
+            )
         )
 
     async def run(self, context: StepContextProtocol) -> None:

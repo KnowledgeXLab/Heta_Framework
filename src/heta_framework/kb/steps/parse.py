@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
+from typing import Any, Mapping
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
-from heta_framework.kb.parsing import DocumentParserRegistry, make_parsed_source
+from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
+from heta_framework.kb.parsing import DocumentParserRegistry, make_document_id, make_parsed_source
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, parser_ref, store_ref
 
@@ -62,6 +64,16 @@ class ParseDocuments:
             artifacts=frozenset({"parse_documents_result", "parsed_document_keys"})
         )
 
+    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
+        """Return parsed document objects produced by this step."""
+        return StepCleanupPlan(
+            object_key_targets(
+                artifacts,
+                "parsed_document_keys",
+                component=store_ref("objects", self.config.object_store).key,
+            )
+        )
+
     async def run(self, context: StepContextProtocol) -> None:
         """Run the parse step and store parsed documents as JSON bytes."""
         object_store = _require_object_store(
@@ -88,11 +100,15 @@ class ParseDocuments:
                 file_type=file_type,
                 data=data,
             )
-            document = await parser_registry.parse(source, data)
             document_key = join_object_key(
                 self.config.parsed_prefix,
-                f"{document.document_id}.json",
+                f"{make_document_id(source.content_sha256)}.json",
             )
+            if await object_store.exists(document_key):
+                document_keys.append(document_key)
+                continue
+
+            document = await parser_registry.parse(source, data)
             await object_store.put(document_key, document.to_json_bytes())
             document_keys.append(document_key)
 

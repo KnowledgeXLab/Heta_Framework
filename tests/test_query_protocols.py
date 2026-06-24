@@ -17,6 +17,7 @@ from heta_framework.kb import (  # noqa: E402
     SearchAsset,
     SearchAssetCollection,
     SearchAssetRef,
+    StepCleanupPlan,
     StepCapabilities,
     StepRequirements,
 )
@@ -55,6 +56,9 @@ class FakeSearchStep:
     async def run(self, context):
         context.set_artifact("index_fake_result", {"ok": True})
 
+    def cleanup_plan(self, artifacts):
+        return StepCleanupPlan()
+
 
 class FakeKeywordStep:
     name = "persist_fake"
@@ -80,6 +84,9 @@ class FakeKeywordStep:
 
     async def run(self, context):
         context.set_artifact("persist_fake_result", {"ok": True})
+
+    def cleanup_plan(self, artifacts):
+        return StepCleanupPlan()
 
 
 class FakeQueryEngine:

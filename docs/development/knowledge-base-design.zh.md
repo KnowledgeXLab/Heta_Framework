@@ -29,6 +29,7 @@ kb/
   validation.py
   state.py
   manifests.py
+  cleanup.py
   recipe.py
   builder.py
   knowledge_base.py
@@ -113,6 +114,104 @@ issues
 
 Manifest 用于审计、展示、恢复 KB metadata 和断点基础。
 Manifest 不序列化 runtime model/store/parser，不试图自动恢复 client 连接。
+
+## Runtime State
+
+Manifest 是最终 metadata，不承担构建过程中的强中断恢复。
+强中断恢复由 `RecipeRunState` 负责。
+
+当 recipe 配置了 `stores.objects` 时，`KnowledgeBase.create()` 会在 ObjectStore 中使用保留前缀：
+
+```text
+_heta/
+  knowledge_bases/
+    {knowledge_base_name}/
+      manifest.json
+      latest_run.json
+      runs/
+        {run_id}/
+          state.json
+          record.json
+```
+
+职责划分：
+
+```text
+latest_run.json
+    指向最近一次 run。
+
+state.json
+    构建过程中的可更新状态。
+    step started / succeeded / failed 都会写入。
+
+record.json
+    run 完成后的不可变记录。
+
+manifest.json
+    KB metadata、recipe manifest 和最终 run record。
+```
+
+`RecipeRunState` 记录：
+
+```text
+run_id
+status
+started_at / finished_at
+current_step
+step_records
+artifacts
+issues
+```
+
+`RecipeRunRecord` 仍然是最终不可变快照。
+State 用于恢复，Record 用于报告、manifest 和 query capability。
+
+## Cleanup
+
+`cleanup.py` 定义 KB 生命周期里的删除协议。
+
+核心类型：
+
+```text
+CleanupTarget
+    一个可删除的持久化资源。
+
+StepCleanupPlan
+    单个 step 声明自己产生了哪些资源。
+
+KnowledgeBaseDeletePlan
+    KnowledgeBase 聚合所有 steps 后得到的完整删除计划。
+
+KnowledgeBaseDeleteResult
+    删除执行结果和非致命 issue。
+```
+
+第一版支持四类目标：
+
+```text
+object_key
+    ObjectStore 中的单个派生产物。
+
+runtime_prefix
+    KnowledgeBase runtime metadata 前缀。
+
+sql_table
+    SQLStore 中由 step 创建的表。
+
+vector_collection
+    VectorStore 中由 step 创建的 collection。
+```
+
+边界原则：
+
+```text
+Step 声明 cleanup target。
+KnowledgeBase 执行 cleanup。
+ObjectStore raw/ 原始输入不属于 cleanup 范围。
+```
+
+这样新 step 在加入框架时必须同时说明它创建了什么、如何被清理。
+删除逻辑仍然收束在 `KnowledgeBase.delete()`，不会散落在各个 step 内部。
 
 ## KnowledgeRecipe
 
@@ -200,3 +299,44 @@ manifest()
 `create()` 调用 `KnowledgeBaseBuilder.build()`。
 `restore()` 由 manifest + runtime recipe 恢复 KB metadata。
 `resume()` 用 previous record 继续构建，并返回新的 immutable `KnowledgeBase`。
+`delete_plan()` 聚合 steps 的 cleanup plan。
+`delete()` 删除 KB 派生产物、持久层索引和 runtime metadata，但不删除 raw 输入。
+
+## Create Resume Semantics
+
+`KnowledgeBase.create()` 是普通用户的统一入口。
+
+当 ObjectStore 中已有同名 KB runtime metadata 时：
+
+```text
+latest run succeeded
+    create() 拒绝再次构建，避免误覆盖已完成 KB。
+
+latest run failed / running
+    create() 加载 state.json，跳过已 succeeded 的 steps，继续未完成部分。
+
+no latest run
+    create() 创建新的 run_id 和 state.json。
+```
+
+这种设计避免引入额外的 `resume_existing()` API。
+同名 KB 的失败恢复仍然通过同一个 `create()` 完成。
+
+Step 级重复调用控制不完全依赖 Builder。
+长成本 step 应该尽量让 ObjectStore artifact 天然幂等：
+
+```text
+ParseDocuments
+    parsed/{document_id}.json 已存在时复用。
+
+EmbedChunks
+    embeddings/{chunk_id}.json 已存在时复用。
+
+ExtractEntities
+    entities/{chunk_id}/*.json 已存在时复用。
+
+ExtractRelations
+    relations/{chunk_id}/*.json 已存在时复用。
+```
+
+Builder 负责 run/step 级恢复，Step 负责 item/artifact 级复用。
