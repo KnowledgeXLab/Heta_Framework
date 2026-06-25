@@ -39,6 +39,15 @@ nav:
           - Keyword search: core-components/search/keyword-search.zh.md
           - Heta graph search: core-components/search/heta-graph-search.zh.md
           - Heta query modes: core-components/search/heta-query-modes.zh.md
+      - Evaluation:
+          - Benchmark protocols: core-components/evaluation/benchmark-protocols.zh.md
+          - BenchmarkRunner: core-components/evaluation/benchmark-runner.zh.md
+          - Evaluators: core-components/evaluation/evaluators.zh.md
+          - Evaluation reports: core-components/evaluation/evaluation-reports.zh.md
+          - Benchmarks:
+              - MultiHop-RAG: core-components/evaluation/multihop-rag.zh.md
+              - UDA-Benchmark: core-components/evaluation/uda-benchmark.zh.md
+              - BEIR: core-components/evaluation/beir.zh.md
       - Steps:
           - Step protocols: core-components/steps/step-protocols.zh.md
           - Document indexing:
