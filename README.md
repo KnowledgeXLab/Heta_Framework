@@ -1,15 +1,11 @@
 # Heta
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/HetaTeam/Heta_Framework/main/docs/images/banner.png" alt="Heta Framework banner" width="100%">
+  <img src="docs/images/banner.png" alt="Heta Framework banner" width="100%">
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/heta/"><img alt="PyPI" src="https://img.shields.io/pypi/v/heta?color=0A6C8F"></a>
-  <a href="https://pypi.org/project/heta/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/heta?color=2F4858"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-0B3E75"></a>
-  <a href="https://github.com/HetaTeam/Heta_Framework"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-Heta_Framework-111111?logo=github"></a>
-  <a href="https://github.com/HetaTeam/Heta_Framework/tree/main/docs"><img alt="Docs" src="https://img.shields.io/badge/docs-MkDocs-7FBFC4"></a>
+  <a href="https://knowledgexlab.github.io/">KnowledgeX Lab</a>
 </p>
 
 Heta is a Python framework for building, querying, and evaluating knowledge
@@ -35,7 +31,7 @@ components, choose the steps, build the KB, and run the same recipe against real
 benchmarks.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/HetaTeam/Heta_Framework/main/docs/images/recipe-to-kb.png" alt="A recipe builds a Heta knowledge base" width="92%">
+  <img src="docs/images/recipe-to-kb.png" alt="A recipe builds a Heta knowledge base" width="92%">
 </p>
 
 ## Install
