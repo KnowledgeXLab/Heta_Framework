@@ -54,7 +54,12 @@ from heta_framework.kb.procedures import (
     KnowledgeProcedureProtocol,
 )
 from heta_framework.kb.recipe import KnowledgeRecipe
-from heta_framework.kb.runtime import KnowledgeBaseAlreadyExistsError, KnowledgeBaseRuntime
+from heta_framework.kb.runtime import (
+    KnowledgeBaseAlreadyExistsError,
+    KnowledgeBaseNotFoundError,
+    KnowledgeBaseNotReadyError,
+    KnowledgeBaseRuntime,
+)
 from heta_framework.kb.search import (
     QueryCitation,
     QueryContext,
@@ -190,6 +195,8 @@ __all__ = [
     "ImageParserConfig",
     "KnowledgeBase",
     "KnowledgeBaseAlreadyExistsError",
+    "KnowledgeBaseNotFoundError",
+    "KnowledgeBaseNotReadyError",
     "KnowledgeBaseBuilder",
     "KnowledgeBaseBuilderConfig",
     "KnowledgeBaseDeletePlan",

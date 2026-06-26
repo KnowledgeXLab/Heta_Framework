@@ -12,6 +12,8 @@ from heta_framework.kb import (  # noqa: E402
     KnowledgeBaseAlreadyExistsError,
     KnowledgeBaseBuilder,
     KnowledgeBaseBuilderConfig,
+    KnowledgeBaseNotFoundError,
+    KnowledgeBaseNotReadyError,
     KnowledgeModels,
     KnowledgeRecipe,
     KnowledgeStores,
@@ -303,6 +305,67 @@ def test_knowledge_base_create_rejects_existing_successful_kb(tmp_path):
         assert "papers" in str(exc)
     else:
         raise AssertionError("expected KnowledgeBaseAlreadyExistsError")
+
+
+def test_knowledge_base_load_restores_successful_runtime_metadata(tmp_path):
+    object_store = LocalObjectStore(tmp_path / "objects")
+    step = FakeStep(
+        "write",
+        capabilities=StepCapabilities(artifacts=frozenset({"out"})),
+        output_key="out",
+        output_value=("artifact-key",),
+    )
+    recipe = KnowledgeRecipe(
+        stores=KnowledgeStores(objects=object_store),
+        steps=(step,),
+    )
+
+    created = asyncio.run(
+        KnowledgeBase.create(
+            recipe=recipe,
+            name="papers",
+            description="Paper KB",
+            metadata={"owner": "test"},
+        )
+    )
+    loaded = asyncio.run(KnowledgeBase.load(recipe=recipe, name="papers"))
+
+    assert loaded.name == "papers"
+    assert loaded.description == "Paper KB"
+    assert loaded.metadata == {"owner": "test"}
+    assert loaded.run_record.run_id == created.run_record.run_id
+    assert loaded.run_record.status == "succeeded"
+    assert loaded.run_record.artifacts["out"] == ["artifact-key"]
+    assert loaded.run_record.step_records[0].status == "succeeded"
+
+
+def test_knowledge_base_load_requires_existing_manifest(tmp_path):
+    object_store = LocalObjectStore(tmp_path / "objects")
+    recipe = KnowledgeRecipe(stores=KnowledgeStores(objects=object_store))
+
+    try:
+        asyncio.run(KnowledgeBase.load(recipe=recipe, name="missing"))
+    except KnowledgeBaseNotFoundError as exc:
+        assert "missing" in str(exc)
+    else:
+        raise AssertionError("expected KnowledgeBaseNotFoundError")
+
+
+def test_knowledge_base_load_rejects_unfinished_kb(tmp_path):
+    object_store = LocalObjectStore(tmp_path / "objects")
+    step = FakeStep("boom", fail=True)
+    recipe = KnowledgeRecipe(stores=KnowledgeStores(objects=object_store), steps=(step,))
+
+    failed = asyncio.run(KnowledgeBase.create(recipe=recipe, name="failed-kb"))
+
+    assert failed.run_record.status == "failed"
+    try:
+        asyncio.run(KnowledgeBase.load(recipe=recipe, name="failed-kb"))
+    except KnowledgeBaseNotReadyError as exc:
+        assert "failed-kb" in str(exc)
+        assert "status=failed" in str(exc)
+    else:
+        raise AssertionError("expected KnowledgeBaseNotReadyError")
 
 
 def test_knowledge_base_create_resumes_unfinished_runtime_state(tmp_path):

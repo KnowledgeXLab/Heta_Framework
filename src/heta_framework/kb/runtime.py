@@ -13,6 +13,14 @@ class KnowledgeBaseAlreadyExistsError(RuntimeError):
     """Raised when a completed knowledge base already exists."""
 
 
+class KnowledgeBaseNotFoundError(RuntimeError):
+    """Raised when persisted knowledge base metadata cannot be found."""
+
+
+class KnowledgeBaseNotReadyError(RuntimeError):
+    """Raised when a persisted knowledge base is not ready for loading."""
+
+
 @dataclass(frozen=True)
 class KnowledgeBaseRuntime:
     """ObjectStore key layout for one knowledge base runtime."""
@@ -87,6 +95,8 @@ def _validate_knowledge_base_name(name: str) -> None:
 __all__ = [
     "KB_METADATA_PREFIX",
     "KnowledgeBaseAlreadyExistsError",
+    "KnowledgeBaseNotFoundError",
+    "KnowledgeBaseNotReadyError",
     "KnowledgeBaseRuntime",
     "safe_knowledge_base_name",
 ]

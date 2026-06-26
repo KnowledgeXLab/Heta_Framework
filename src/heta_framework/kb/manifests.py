@@ -5,8 +5,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Mapping
 
-from heta_framework.kb.state import RecipeRunRecord
-from heta_framework.kb.steps import StepCapabilities, StepRequirements
+from heta_framework.kb.search import SearchAsset
+from heta_framework.kb.state import RecipeRunRecord, recipe_run_record_from_dict
+from heta_framework.kb.steps import ComponentRef, StepCapabilities, StepRequirements
 
 MANIFEST_SCHEMA_VERSION = "1"
 
@@ -20,6 +21,17 @@ class StepManifest:
     type: str
     requirements: StepRequirements
     capabilities: StepCapabilities
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "StepManifest":
+        """Create a step manifest from a JSON dictionary."""
+        return cls(
+            index=int(data["index"]),
+            name=str(data["name"]),
+            type=str(data["type"]),
+            requirements=_requirements_from_dict(data.get("requirements", {})),
+            capabilities=_capabilities_from_dict(data.get("capabilities", {})),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
@@ -49,6 +61,20 @@ class KnowledgeRecipeManifest:
         object.__setattr__(self, "artifacts_required", tuple(self.artifacts_required))
         object.__setattr__(self, "capabilities_provided", tuple(self.capabilities_provided))
         object.__setattr__(self, "metadata", dict(self.metadata))
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "KnowledgeRecipeManifest":
+        """Create a recipe manifest from a JSON dictionary."""
+        return cls(
+            schema_version=str(data["schema_version"]),
+            steps=tuple(StepManifest.from_dict(item) for item in data.get("steps", ())),
+            component_refs=tuple(str(item) for item in data.get("component_refs", ())),
+            artifacts_required=tuple(str(item) for item in data.get("artifacts_required", ())),
+            capabilities_provided=tuple(
+                str(item) for item in data.get("capabilities_provided", ())
+            ),
+            metadata=dict(data.get("metadata", {})),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
@@ -83,6 +109,20 @@ class KnowledgeBaseManifest:
         if self.updated_at.strip() == "":
             raise ValueError("updated_at must not be empty")
         object.__setattr__(self, "metadata", dict(self.metadata))
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "KnowledgeBaseManifest":
+        """Create a knowledge base manifest from a JSON dictionary."""
+        return cls(
+            schema_version=str(data["schema_version"]),
+            name=str(data["name"]),
+            description=data.get("description"),
+            created_at=str(data["created_at"]),
+            updated_at=str(data["updated_at"]),
+            recipe=KnowledgeRecipeManifest.from_dict(data["recipe"]),
+            run_record=recipe_run_record_from_dict(data["run_record"]),
+            metadata=dict(data.get("metadata", {})),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
@@ -136,12 +176,41 @@ def _requirements_to_dict(requirements: StepRequirements) -> dict[str, Any]:
     }
 
 
+def _requirements_from_dict(data: Mapping[str, Any]) -> StepRequirements:
+    return StepRequirements(
+        components=frozenset(
+            _component_ref_from_key(str(item)) for item in data.get("components", ())
+        ),
+        artifacts=frozenset(str(item) for item in data.get("artifacts", ())),
+        queries=frozenset(str(item) for item in data.get("queries", ())),
+    )
+
+
 def _capabilities_to_dict(capabilities: StepCapabilities) -> dict[str, Any]:
     return {
         "artifacts": sorted(capabilities.artifacts),
         "queries": sorted(capabilities.queries),
         "search_assets": [asset.to_dict() for asset in capabilities.search_assets],
     }
+
+
+def _capabilities_from_dict(data: Mapping[str, Any]) -> StepCapabilities:
+    return StepCapabilities(
+        artifacts=frozenset(str(item) for item in data.get("artifacts", ())),
+        queries=frozenset(str(item) for item in data.get("queries", ())),
+        search_assets=tuple(SearchAsset(**item) for item in data.get("search_assets", ())),
+    )
+
+
+def _component_ref_from_key(key: str) -> ComponentRef:
+    parts = key.split(".")
+    if len(parts) == 2:
+        namespace, kind = parts
+        return ComponentRef(namespace=namespace, kind=kind)  # type: ignore[arg-type]
+    if len(parts) == 3:
+        namespace, kind, name = parts
+        return ComponentRef(namespace=namespace, kind=kind, name=name)  # type: ignore[arg-type]
+    raise ValueError(f"invalid component key: {key}")
 
 
 def _manifest_artifacts(artifacts: Mapping[str, Any]) -> dict[str, Any]:

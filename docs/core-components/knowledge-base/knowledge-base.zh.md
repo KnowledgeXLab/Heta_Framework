@@ -121,6 +121,40 @@ _heta/
 这些文件属于框架 runtime metadata，不属于用户原始数据。
 它们用于审计、调试和断点续跑。
 
+## Load
+
+`KnowledgeBase.load()` 用于重新打开一个已经成功构建完成的知识库：
+
+```python
+kb = await KnowledgeBase.load(
+    recipe=recipe,
+    name="papers",
+)
+```
+
+它会从当前 recipe 的 `stores.objects` 中读取：
+
+```text
+_heta/knowledge_bases/{knowledge_base_name}/manifest.json
+```
+
+并恢复最近一次成功 run 的 `run_record`、artifacts 和 query capabilities。
+
+`load()` 不重新执行 steps，也不重新构建知识库。它只恢复已经存在的 KB metadata，
+并使用当前传入的 runtime recipe 提供模型、向量库、SQL、对象存储等运行时组件。
+
+这意味着进程退出后，推荐流程是：
+
+```python
+recipe = build_runtime_recipe_again(...)
+kb = await KnowledgeBase.load(recipe=recipe, name="papers")
+response = await kb.query("...", mode="vector_search")
+```
+
+如果 KB 不存在，`load()` 会抛出 `KnowledgeBaseNotFoundError`。
+如果最近一次 run 还没有成功完成，`load()` 会抛出 `KnowledgeBaseNotReadyError`。
+失败恢复仍然应该继续使用同名 `KnowledgeBase.create()`。
+
 ## Delete
 
 `KnowledgeBase.delete()` 删除这个知识库构建过程中产生的派生产物：
@@ -185,6 +219,7 @@ Manifest 适合用于审计、展示、恢复 KB metadata 和断点基础。
 
 ## Restore
 
+`KnowledgeBase.restore()` 适合已经手动拿到 `KnowledgeBaseManifest` 的高级场景。
 恢复时必须重新提供 runtime recipe：
 
 ```python
@@ -195,6 +230,7 @@ restored = KnowledgeBase.restore(
 ```
 
 这样做可以避免把 API key、数据库连接、HTTP client 等运行时对象写入 manifest。
+普通用户更推荐使用 `KnowledgeBase.load()`，让框架自己从 ObjectStore 读取 manifest。
 
 ## Resume
 
@@ -217,7 +253,7 @@ resumed = await restored.resume()
 
 ## Query APIs
 
-当前 `KnowledgeBase` 主要负责构建结果和生命周期 metadata。
+`KnowledgeBase.query()` 负责调用当前 KB 已解锁的 query engine。
 具体查询能力由 steps 解锁，例如：
 
 ```text
@@ -225,4 +261,5 @@ IndexVectors -> vector_search
 BuildGraph / MergeGraphIntoStore -> heta_graph_search
 ```
 
-后续面向用户的 query API 可以挂在 `KnowledgeBase` 上，但底层能力仍然来自 recipe 中实际执行过的 steps。
+底层 query engine 会使用当前 runtime recipe 中的模型和存储组件，因此 `load()` 后也需要提供
+能够连接到原持久化后端的 recipe。

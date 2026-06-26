@@ -24,6 +24,7 @@ from heta_framework.kb import (  # noqa: E402
 from heta_framework.common.models import EmbeddingRequest, EmbeddingResult  # noqa: E402
 from heta_framework.common.stores import (  # noqa: E402
     InMemoryVectorStore,
+    LocalObjectStore,
     SQLStore,
     VectorCollectionConfig,
     VectorRecord,
@@ -270,6 +271,42 @@ def test_knowledge_base_query_runs_vector_search():
         assert response.results[0].id == "chunk_heta"
         assert response.results[0].source["object_key"] == "raw/heta.txt"
         assert response.results[0].source["chunk_ids"] == ("chunk_heta",)
+        assert response.citations[0].source == response.results[0].source
+
+    asyncio.run(run())
+
+
+def test_knowledge_base_load_preserves_query_capabilities(tmp_path):
+    async def run():
+        object_store = LocalObjectStore(tmp_path / "objects")
+        vector_store = InMemoryVectorStore()
+        await vector_store.create_collection(VectorCollectionConfig(name="chunks", dimension=8))
+        await vector_store.upsert(
+            "chunks",
+            [
+                VectorRecord(
+                    id="chunk_heta",
+                    vector=_vector_for_text("heta recipe"),
+                    text="Heta recipes compose models, stores, parsers, and steps.",
+                    metadata={"document_id": "doc_1", "source_key": "raw/heta.txt"},
+                )
+            ],
+        )
+        recipe = KnowledgeRecipe(
+            models=KnowledgeModels(embedding=FakeEmbeddingModel()),
+            stores=KnowledgeStores(objects=object_store, vector=vector_store),
+            steps=(FakeSearchStep(),),
+        )
+
+        created = await KnowledgeBase.create(recipe=recipe, name="loaded-query-test")
+        loaded = await KnowledgeBase.load(recipe=recipe, name="loaded-query-test")
+
+        assert loaded.run_record.run_id == created.run_record.run_id
+        assert loaded.available_queries == frozenset({"vector_search"})
+
+        response = await loaded.query("heta recipe", mode="vector_search", top_k=1)
+
+        assert response.results[0].id == "chunk_heta"
         assert response.citations[0].source == response.results[0].source
 
     asyncio.run(run())

@@ -157,7 +157,9 @@ class RecipeRunState:
             status=data["status"],
             started_at=str(data["started_at"]),
             finished_at=data.get("finished_at"),
-            step_records=tuple(_step_record_from_dict(item) for item in data.get("step_records", [])),
+            step_records=tuple(
+                _step_record_from_dict(item) for item in data.get("step_records", [])
+            ),
             current_step=_step_record_from_dict(current) if isinstance(current, Mapping) else None,
             artifacts=dict(data.get("artifacts", {})),
             issues=tuple(_issue_from_dict(item) for item in data.get("issues", [])),
@@ -284,6 +286,22 @@ class RecipeRunState:
         self.step_records.append(record)
 
 
+def recipe_run_record_from_dict(data: Mapping[str, Any]) -> RecipeRunRecord:
+    """Create a recipe run record from a JSON dictionary."""
+    return RecipeRunRecord(
+        run_id=str(data["run_id"]),
+        status=data["status"],
+        started_at=str(data["started_at"]),
+        finished_at=data.get("finished_at"),
+        step_records=tuple(
+            _step_record_from_dict(item) for item in data.get("step_records", ())
+        ),
+        artifacts=dict(data.get("artifacts", {})),
+        capabilities=_capabilities_from_dict(data.get("capabilities", {})),
+        issues=tuple(_issue_from_dict(item) for item in data.get("issues", ())),
+    )
+
+
 def _step_record_to_dict(record: StepRunRecord) -> dict[str, Any]:
     return {
         "index": record.index,
@@ -328,7 +346,9 @@ def _requirements_to_dict(requirements: StepRequirements) -> dict[str, Any]:
 
 def _requirements_from_dict(data: Mapping[str, Any]) -> StepRequirements:
     return StepRequirements(
-        components=frozenset(_component_ref_from_key(str(item)) for item in data.get("components", ())),
+        components=frozenset(
+            _component_ref_from_key(str(item)) for item in data.get("components", ())
+        ),
         artifacts=frozenset(str(item) for item in data.get("artifacts", ())),
         queries=frozenset(str(item) for item in data.get("queries", ())),
     )

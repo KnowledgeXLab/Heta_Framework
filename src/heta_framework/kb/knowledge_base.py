@@ -23,7 +23,12 @@ from heta_framework.kb.manifests import (
     run_record_to_dict,
 )
 from heta_framework.kb.recipe import KnowledgeRecipe
-from heta_framework.kb.runtime import KnowledgeBaseAlreadyExistsError, KnowledgeBaseRuntime
+from heta_framework.kb.runtime import (
+    KnowledgeBaseAlreadyExistsError,
+    KnowledgeBaseNotFoundError,
+    KnowledgeBaseNotReadyError,
+    KnowledgeBaseRuntime,
+)
 from heta_framework.kb.search import (
     QueryContext,
     QueryEngineRegistry,
@@ -142,11 +147,46 @@ class KnowledgeBase:
         return kb
 
     @classmethod
+    async def load(
+        cls,
+        *,
+        recipe: KnowledgeRecipe,
+        name: str,
+        query_engines: QueryEngineRegistry | None = None,
+    ) -> "KnowledgeBase":
+        """Load a completed knowledge base from persisted runtime metadata."""
+        runtime = KnowledgeBaseRuntime(name)
+        runtime_store = _runtime_object_store(recipe)
+        if runtime_store is None:
+            raise ValueError("recipe.stores.objects must satisfy ObjectStoreProtocol to load a KB")
+        if not await runtime_store.exists(runtime.manifest_key):
+            raise KnowledgeBaseNotFoundError(f"knowledge base metadata not found: {name}")
+
+        manifest = KnowledgeBaseManifest.from_dict(
+            _loads_json(await runtime_store.get(runtime.manifest_key))
+        )
+        if manifest.name != name:
+            raise ValueError(
+                f"loaded manifest name does not match requested name: {manifest.name!r} != {name!r}"
+            )
+        if manifest.run_record.status != "succeeded":
+            raise KnowledgeBaseNotReadyError(
+                f"knowledge base is not ready to load: {name} "
+                f"(status={manifest.run_record.status})"
+            )
+        return cls.restore(
+            manifest=manifest,
+            recipe=recipe,
+            query_engines=query_engines,
+        )
+
+    @classmethod
     def restore(
         cls,
         *,
         manifest: KnowledgeBaseManifest,
         recipe: KnowledgeRecipe,
+        query_engines: QueryEngineRegistry | None = None,
     ) -> "KnowledgeBase":
         """Restore knowledge base metadata with a runtime recipe."""
         return cls(
@@ -157,6 +197,7 @@ class KnowledgeBase:
             created_at=manifest.created_at,
             updated_at=manifest.updated_at,
             metadata=manifest.metadata,
+            query_engines=query_engines or QueryEngineRegistry.defaults(),
         )
 
     async def resume(
@@ -415,4 +456,9 @@ def _loads_json(data: bytes) -> dict[str, Any]:
     return value
 
 
-__all__ = ["KnowledgeBase", "KnowledgeBaseAlreadyExistsError"]
+__all__ = [
+    "KnowledgeBase",
+    "KnowledgeBaseAlreadyExistsError",
+    "KnowledgeBaseNotFoundError",
+    "KnowledgeBaseNotReadyError",
+]
