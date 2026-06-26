@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Heta Framework</title>
+    <meta
+      name="description"
+      content="Composable knowledge systems, built from recipes."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <canvas
+          id="block-scene"
+          class="block-scene"
+          aria-label="Animated modular blocks forming a knowledge system"
+        ></canvas>
+
+        <nav class="nav" aria-label="Primary navigation">
+          <a class="brand" href="#">
+            <span class="brand-mark" aria-hidden="true">
+              <i class="mark-piece p1"></i>
+              <i class="mark-piece p2"></i>
+              <i class="mark-piece p3"></i>
+              <i class="mark-piece p4"></i>
+            </span>
+            <span>Heta Framework</span>
+          </a>
+          <div class="nav-links">
+            <a href="#recipe">Recipe</a>
+            <a href="#capabilities">Capabilities</a>
+            <a href="#evaluate">Evaluate</a>
+          </div>
+        </nav>
+
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">Framework for composable RAG systems</p>
+            <h1 id="hero-title">Composable knowledge systems, built from recipes.</h1>
+            <p class="lead">
+              Heta turns knowledge-base construction into explicit building blocks:
+              models, stores, parsers, steps, search modes, and benchmarks. Build
+              only the system you need, then evaluate the same recipe.
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="../docs/quick-start.zh.md">Start building</a>
+              <a class="button" href="#recipe">Explore the recipe</a>
+            </div>
+          </div>
+
+          <aside class="system-panel" aria-label="Recipe summary">
+            <div class="panel-header">
+              <span></span>
+              <span></span>
+              <span></span>
+              <strong>recipe.graph</strong>
+            </div>
+            <div class="signal-list">
+              <div class="signal active">
+                <span>01</span>
+                <strong>Parse</strong>
+                <em>documents</em>
+              </div>
+              <div class="signal active">
+                <span>02</span>
+                <strong>Embed</strong>
+                <em>vectors</em>
+              </div>
+              <div class="signal active">
+                <span>03</span>
+                <strong>Index</strong>
+                <em>vector_search</em>
+              </div>
+              <div class="signal">
+                <span>04</span>
+                <strong>Graph</strong>
+                <em>heta_graph_search</em>
+              </div>
+              <div class="signal">
+                <span>05</span>
+                <strong>Evaluate</strong>
+                <em>benchmark report</em>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="hero-floor" aria-hidden="true">
+          <span>models</span>
+          <span>stores</span>
+          <span>parsers</span>
+          <span>steps</span>
+          <span>search</span>
+          <span>benchmarks</span>
+        </div>
+      </section>
+
+      <section id="recipe" class="section recipe-section">
+        <div class="section-copy">
+          <p class="eyebrow">Recipe as the build unit</p>
+          <h2>One recipe declares the system. Steps unlock what it can do.</h2>
+          <p>
+            Heta does not force one RAG pipeline. A vector-only KB, a keyword
+            search KB, a Heta graph KB, or a benchmark runner all use the same
+            composition model.
+          </p>
+        </div>
+
+        <div class="code-stage">
+          <pre><code><span class="muted"># Choose components.</span>
+recipe = KnowledgeRecipe(
+    parsers=KnowledgeParsers(documents=registry),
+    models=KnowledgeModels(
+        language=llm,
+        embedding=embedding,
+    ),
+    stores=KnowledgeStores(
+        objects=objects,
+        vector=vectors,
+        sql=sql,
+    ),
+    steps=(
+        ParseDocuments(),
+        SplitDocuments(),
+        EmbedChunks(),
+        IndexVectors(),          <span class="muted"># vector_search</span>
+        PersistChunks(),         <span class="muted"># keyword_search</span>
+        *HetaGraphProcedure.build().steps(),
+    ),
+)</code></pre>
+          <div class="unlock-card">
+            <span>unlocked queries</span>
+            <strong>vector_search</strong>
+            <strong>keyword_search</strong>
+            <strong>heta_graph_search</strong>
+            <strong>hybrid_search</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="capabilities" class="section capability-section">
+        <div class="capability">
+          <span class="cap-index">01</span>
+          <h3>Assemble</h3>
+          <p>Pick parser, model, vector store, SQL store, and object store explicitly.</p>
+        </div>
+        <div class="capability">
+          <span class="cap-index">02</span>
+          <h3>Build</h3>
+          <p>Run ordered steps that create stable artifacts and search assets.</p>
+        </div>
+        <div class="capability">
+          <span class="cap-index">03</span>
+          <h3>Search</h3>
+          <p>Query through vector, keyword, graph, hybrid, rerank, rewrite, or multi-hop modes.</p>
+        </div>
+        <div class="capability">
+          <span class="cap-index">04</span>
+          <h3>Evaluate</h3>
+          <p>Run the same recipe against benchmarks and compare report outputs.</p>
+        </div>
+      </section>
+
+      <section id="evaluate" class="section evaluation-section">
+        <div>
+          <p class="eyebrow">Benchmark the recipe, not just a query</p>
+          <h2>Evaluation is part of the framework, not an afterthought.</h2>
+        </div>
+        <div class="benchmark-grid">
+          <article>
+            <strong>UDA-fin</strong>
+            <span>multi-KB by document</span>
+          </article>
+          <article>
+            <strong>BEIR / SciFact</strong>
+            <span>corpus-level retrieval</span>
+          </article>
+          <article>
+            <strong>MultiHop-RAG</strong>
+            <span>evidence recall path</span>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="./main.js"></script>
+  </body>
+</html>
