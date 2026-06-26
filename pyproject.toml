@@ -10,6 +10,8 @@ name = "heta"
 version = "0.1.0"
 description = "Framework-oriented Heta knowledge base toolkit"
 readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "beautifulsoup4==4.14.3",
@@ -18,6 +20,12 @@ dependencies = [
     "python-calamine==0.6.2",
     "tiktoken==0.13.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/HetaTeam/Heta_Framework"
+Documentation = "https://github.com/HetaTeam/Heta_Framework/tree/main/docs"
+Repository = "https://github.com/HetaTeam/Heta_Framework"
+Issues = "https://github.com/HetaTeam/Heta_Framework/issues"
 
 [project.optional-dependencies]
 json = [
