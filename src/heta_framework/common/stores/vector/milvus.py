@@ -198,12 +198,32 @@ class MilvusVectorStore:
             flush(collection_name=collection)
 
     def _get_collection_config(self, collection: str) -> VectorCollectionConfig:
-        try:
-            return self._collection_configs[collection]
-        except KeyError as exc:
-            raise ValueError(
-                f"collection config is unknown: {collection!r}; call create_collection first"
-            ) from exc
+        config = self._collection_configs.get(collection)
+        if config is not None:
+            return config
+        config = self._load_collection_config(collection)
+        self._collection_configs[collection] = config
+        return config
+
+    def _load_collection_config(self, collection: str) -> VectorCollectionConfig:
+        if not self._client.has_collection(collection_name=collection):
+            raise ValueError(f"collection does not exist: {collection}")
+
+        description = self._client.describe_collection(collection_name=collection)
+        dimension = _vector_dimension_from_description(
+            description,
+            vector_field=self.config.vector_field,
+        )
+        metric = _metric_from_index(
+            self._client,
+            collection=collection,
+            vector_field=self.config.vector_field,
+        )
+        return VectorCollectionConfig(
+            name=collection,
+            dimension=dimension,
+            metric=metric,
+        )
 
 
 def _create_client(config: MilvusVectorStoreConfig) -> Any:
@@ -283,6 +303,43 @@ def _hit_to_result(
         text=text or None,
         metadata=metadata or None,
     )
+
+
+def _vector_dimension_from_description(description: Any, *, vector_field: str) -> int:
+    fields = description.get("fields", []) if isinstance(description, dict) else []
+    for field in fields:
+        if not isinstance(field, dict) or field.get("name") != vector_field:
+            continue
+        params = field.get("params") or {}
+        dimension = params.get("dim")
+        if dimension is None:
+            break
+        return int(dimension)
+    raise ValueError(f"Milvus collection is missing vector field metadata: {vector_field}")
+
+
+def _metric_from_index(client: Any, *, collection: str, vector_field: str) -> DistanceMetric:
+    index_names = client.list_indexes(collection_name=collection)
+    for index_name in index_names:
+        description = client.describe_index(
+            collection_name=collection,
+            index_name=index_name,
+        )
+        if description.get("field_name") != vector_field:
+            continue
+        return _distance_metric(str(description.get("metric_type", "COSINE")))
+    return "cosine"
+
+
+def _distance_metric(metric: str) -> DistanceMetric:
+    normalized = metric.upper()
+    if normalized == "COSINE":
+        return "cosine"
+    if normalized == "IP":
+        return "dot"
+    if normalized == "L2":
+        return "l2"
+    raise ValueError(f"unsupported Milvus metric: {metric}")
 
 
 def _milvus_metric(metric: DistanceMetric) -> str:

@@ -33,6 +33,8 @@ class FakeIndexParams:
 class FakeMilvusClient:
     def __init__(self):
         self.collections = set()
+        self.collection_descriptions = {}
+        self.collection_indexes = {}
         self.created = []
         self.upserted = []
         self.deleted = []
@@ -54,8 +56,22 @@ class FakeMilvusClient:
         return collection_name in self.collections
 
     def create_collection(self, **kwargs):
-        self.collections.add(kwargs["collection_name"])
+        collection_name = kwargs["collection_name"]
+        self.collections.add(collection_name)
         self.created.append(kwargs)
+        vector_field = kwargs["schema"].fields[1]
+        self.collection_descriptions[collection_name] = {
+            "fields": [
+                {"name": field["field_name"], "params": field}
+                for field in kwargs["schema"].fields
+            ]
+        }
+        self.collection_indexes[collection_name] = {
+            vector_field["field_name"]: {
+                "field_name": vector_field["field_name"],
+                "metric_type": kwargs["index_params"].indexes[0]["metric_type"],
+            }
+        }
 
     def drop_collection(self, *, collection_name):
         self.collections.discard(collection_name)
@@ -87,6 +103,15 @@ class FakeMilvusClient:
 
     def query(self, **kwargs):
         return [{"count(*)": 3}]
+
+    def describe_collection(self, *, collection_name):
+        return self.collection_descriptions[collection_name]
+
+    def list_indexes(self, *, collection_name):
+        return list(self.collection_indexes.get(collection_name, {}))
+
+    def describe_index(self, *, collection_name, index_name):
+        return self.collection_indexes[collection_name][index_name]
 
     def close(self):
         self.closed = True
@@ -169,6 +194,31 @@ def test_milvus_vector_store_searches_with_filter(monkeypatch):
     assert results[0].score == 0.9
     assert results[0].text == "hello"
     assert results[0].metadata == {"document_id": "doc-1", "kind": "paper"}
+
+
+def test_milvus_vector_store_recovers_existing_collection_config(monkeypatch):
+    install_fake_pymilvus(monkeypatch)
+
+    async def run():
+        store = MilvusVectorStore()
+        await store.create_collection(VectorCollectionConfig(name="chunks", dimension=3))
+        client = store._client
+
+        restored_store = MilvusVectorStore(client=client)
+        results = await restored_store.search(
+            "chunks",
+            VectorQuery(vector=[0.1, 0.2, 0.3]),
+        )
+        return restored_store, results
+
+    store, results = asyncio.run(run())
+
+    assert store._collection_configs["chunks"] == VectorCollectionConfig(
+        name="chunks",
+        dimension=3,
+        metric="cosine",
+    )
+    assert results[0].id == "chunk-001"
 
 
 def test_milvus_vector_store_delete_count_and_close(monkeypatch):
