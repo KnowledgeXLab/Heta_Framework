@@ -1,6 +1,8 @@
-# Keyword Search
+# SQL Text Search
 
-`keyword_search` 检索 `PersistChunks` 写入 SQLStore 的 chunk 文本。
+`sql_text_search` 检索 `PersistChunks` 写入 SQLStore 的 chunk 文本。
+
+它是 SQL 文本检索能力，不等同于专业全文检索索引。需要 BM25、phrase query、analyzer 或 Elasticsearch/OpenSearch 这类能力时，应使用 `IndexFullText` 解锁 `full_text_search`。
 
 ## Required Asset
 
@@ -22,7 +24,7 @@ SearchAsset(
 只要 KB 的 latest run record 中存在这个资产，默认 query registry 就会启用：
 
 ```text
-keyword_search
+sql_text_search
 ```
 
 ## Usage
@@ -30,7 +32,7 @@ keyword_search
 ```python
 response = await kb.query(
     "flight control fault",
-    mode="keyword_search",
+    mode="sql_text_search",
     top_k=5,
 )
 
@@ -81,5 +83,6 @@ ts_rank(content_tsv, plainto_tsquery('simple', :query))
 
 ## Boundary
 
-`keyword_search` 只负责 SQL 文本召回，不做 embedding、rerank、query rewrite 或 hybrid fusion。
-如果需要向量加关键词融合，应通过显式的 hybrid query engine 或 procedure 表达。
+`sql_text_search` 只负责 SQL 文本召回，不做 embedding、rerank、query rewrite 或 hybrid fusion。
+
+`sql_text_search` 和 `full_text_search` 是并列能力。前者来自 SQL chunk table，后者来自 full-text index。它们不互相依赖，也不自动 fallback。

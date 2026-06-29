@@ -306,6 +306,7 @@ class KnowledgeBase:
         deleted_object_keys: list[str] = []
         deleted_runtime_prefixes: list[str] = []
         dropped_sql_tables: list[str] = []
+        dropped_text_indexes: list[str] = []
         dropped_vector_collections: list[str] = []
         issues: list[CleanupIssue] = []
 
@@ -323,6 +324,15 @@ class KnowledgeBase:
                     )
                     await sql_store.execute(f"DROP TABLE IF EXISTS {target.value}")
                     dropped_sql_tables.append(target.value)
+                elif target.kind == "text_index":
+                    text_index_store = self.recipe.get_component(
+                        _component_ref(target, default="stores.text_index")
+                    )
+                    drop_index = getattr(text_index_store, "drop_index", None)
+                    if drop_index is None:
+                        raise TypeError("stores.text_index must provide drop_index")
+                    await drop_index(target.value)
+                    dropped_text_indexes.append(target.value)
                 elif target.kind == "object_key":
                     object_store = _require_object_store(
                         self.recipe.get_component(_component_ref(target, default="stores.objects"))
@@ -353,6 +363,7 @@ class KnowledgeBase:
             deleted_object_keys=tuple(deleted_object_keys),
             deleted_runtime_prefixes=tuple(deleted_runtime_prefixes),
             dropped_sql_tables=tuple(dropped_sql_tables),
+            dropped_text_indexes=tuple(dropped_text_indexes),
             dropped_vector_collections=tuple(dropped_vector_collections),
             issues=tuple(issues),
         )
@@ -379,8 +390,9 @@ def _ordered_cleanup_targets(targets: tuple[CleanupTarget, ...]) -> tuple[Cleanu
     order = {
         "vector_collection": 0,
         "sql_table": 1,
-        "object_key": 2,
-        "runtime_prefix": 3,
+        "text_index": 2,
+        "object_key": 3,
+        "runtime_prefix": 4,
     }
     return tuple(sorted(targets, key=lambda target: order[target.kind]))
 

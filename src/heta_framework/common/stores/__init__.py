@@ -26,6 +26,16 @@ from heta_framework.common.stores.sql import (
     SQLTransaction,
     SQLTransactionProtocol,
 )
+from heta_framework.common.stores.text_index import (
+    ElasticsearchTextIndexStore,
+    ElasticsearchTextIndexStoreConfig,
+    InMemoryTextIndexStore,
+    TextIndexConfig,
+    TextIndexRecord,
+    TextIndexStoreProtocol,
+    TextQuery,
+    TextSearchResult,
+)
 from heta_framework.common.stores.vector import (
     DistanceMetric,
     InMemoryVectorStore,
@@ -40,10 +50,13 @@ from heta_framework.common.stores.vector import (
 
 __all__ = [
     "DistanceMetric",
+    "ElasticsearchTextIndexStore",
+    "ElasticsearchTextIndexStoreConfig",
     "GraphEdge",
     "GraphNode",
     "GraphStoreProtocol",
     "InMemoryGraphStore",
+    "InMemoryTextIndexStore",
     "InMemoryVectorStore",
     "LocalObjectStore",
     "LocalObjectStoreConfig",
@@ -63,6 +76,11 @@ __all__ = [
     "SQLStoreProtocol",
     "SQLTransaction",
     "SQLTransactionProtocol",
+    "TextIndexConfig",
+    "TextIndexRecord",
+    "TextIndexStoreProtocol",
+    "TextQuery",
+    "TextSearchResult",
     "VectorCollectionConfig",
     "VectorQuery",
     "VectorRecord",

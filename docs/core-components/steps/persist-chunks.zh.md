@@ -33,10 +33,10 @@ persist_chunks_result
 
 ```text
 SearchAsset(kind="chunk_text_index")
-query mode: keyword_search
+query mode: sql_text_search
 ```
 
-因此知识库可以通过 `KnowledgeBase.query(..., mode="keyword_search")` 进行关键词检索。
+因此知识库可以通过 `KnowledgeBase.query(..., mode="sql_text_search")` 进行 SQL 文本检索。
 
 ## Configuration
 
@@ -54,7 +54,7 @@ PersistChunksConfig(
 | `dialect` | `generic` 或 `postgresql`。 |
 | `chunk_keys_artifact` | 输入 chunk key artifact 名称。 |
 
-`generic` 使用保守的 SQL 表结构，适合 SQLite、MySQL 和基础 SQL smoke test。内置 `keyword_search` 会使用 `LIKE` 作为兜底策略。
+`generic` 使用保守的 SQL 表结构，适合 SQLite、MySQL 和基础 SQL smoke test。内置 `sql_text_search` 会使用 `LIKE` 作为兜底策略。
 
 `postgresql` 会额外创建：
 
@@ -63,7 +63,7 @@ content_tsv tsvector
 GIN index
 ```
 
-用于 PostgreSQL 全文检索召回。内置 `keyword_search` 会使用 `plainto_tsquery('simple', query)` 和 `ts_rank` 排序。
+用于 PostgreSQL 全文检索召回。内置 `sql_text_search` 会使用 `plainto_tsquery('simple', query)` 和 `ts_rank` 排序。
 
 ## Table Shape
 

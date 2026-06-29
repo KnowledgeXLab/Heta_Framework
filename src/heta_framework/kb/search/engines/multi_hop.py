@@ -29,7 +29,7 @@ class MultiHopSearchEngine:
     required_asset_refs: frozenset[SearchAssetRef] = frozenset(
         {
             SearchAssetRef(kind="chunk_vector_index"),
-            SearchAssetRef(kind="chunk_text_index"),
+            SearchAssetRef(kind="chunk_full_text_index"),
             SearchAssetRef(kind="graph_tables"),
             SearchAssetRef(kind="graph_vector_index"),
         }

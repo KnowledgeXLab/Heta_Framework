@@ -26,10 +26,10 @@ class RerankSearchEngine:
     """Fuse Heta hybrid and keyword candidates, then rerank when available."""
 
     mode: str = "heta_rerank_search"
-    candidate_modes: tuple[str, ...] = ("hybrid_search", "keyword_search")
+    candidate_modes: tuple[str, ...] = ("hybrid_search", "full_text_search")
     reranker_model: str | None = None
     vector_asset_ref: SearchAssetRef = SearchAssetRef(kind="chunk_vector_index")
-    keyword_asset_ref: SearchAssetRef = SearchAssetRef(kind="chunk_text_index")
+    full_text_asset_ref: SearchAssetRef = SearchAssetRef(kind="chunk_full_text_index")
     graph_tables_ref: SearchAssetRef = SearchAssetRef(kind="graph_tables")
     graph_vectors_ref: SearchAssetRef = SearchAssetRef(kind="graph_vector_index")
     language_model: str | None = None
@@ -40,7 +40,7 @@ class RerankSearchEngine:
         return frozenset(
             {
                 self.vector_asset_ref,
-                self.keyword_asset_ref,
+                self.full_text_asset_ref,
                 self.graph_tables_ref,
                 self.graph_vectors_ref,
             }

@@ -1,4 +1,4 @@
-"""Keyword search query engine."""
+"""SQL text search query engine."""
 
 from __future__ import annotations
 
@@ -21,16 +21,16 @@ from heta_framework.kb.steps.types import ComponentRef, store_ref
 
 
 @dataclass(frozen=True)
-class KeywordSearchEngine:
-    """Search persisted chunk text produced by PersistChunks."""
+class SqlTextSearchEngine:
+    """Search chunk text persisted in a SQL table by PersistChunks."""
 
-    mode: str = "keyword_search"
+    mode: str = "sql_text_search"
     asset_ref: SearchAssetRef = SearchAssetRef(kind="chunk_text_index")
     language_model: str | None = None
 
     @property
     def required_assets(self) -> frozenset[SearchAssetRef]:
-        """Return assets required by keyword search."""
+        """Return assets required by SQL text search."""
         return frozenset({self.asset_ref})
 
     async def query(self, request: QueryRequest, context: QueryContext) -> QueryResponse:
@@ -68,7 +68,7 @@ class KeywordSearchEngine:
         if request.trace:
             trace = (
                 QueryTraceEvent(
-                    stage="keyword_search",
+                    stage="sql_text_search",
                     message="Searched persisted chunk text.",
                     metadata={
                         "table": table,
@@ -84,7 +84,12 @@ class KeywordSearchEngine:
             answer=answer,
             citations=citations_from_results(results),
             trace=trace,
-            metadata={"table": table, "dialect": dialect, **answer_metadata},
+            metadata={
+                "table": table,
+                "dialect": dialect,
+                "retrieval_method": "sql_text_search",
+                **answer_metadata,
+            },
         )
 
 

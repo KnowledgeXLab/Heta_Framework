@@ -53,6 +53,7 @@ class KnowledgeStores:
     vector: object | None = None
     sql: object | None = None
     graph: object | None = None
+    text_index: object | None = None
     named: Mapping[str, object] = field(default_factory=dict)
 
     def get(self, ref: ComponentRef) -> object:
@@ -67,6 +68,7 @@ class KnowledgeStores:
                 "vector": self.vector,
                 "sql": self.sql,
                 "graph": self.graph,
+                "text_index": self.text_index,
             },
             named=self.named,
         )

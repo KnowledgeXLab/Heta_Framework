@@ -5,11 +5,11 @@ Heta Framework 内置一组对齐 HetaDB 经验的查询模式。它们不是新
 | 模式 | 作用 | 依赖 |
 | --- | --- | --- |
 | `hybrid_search` | 向量检索和 Heta 图谱检索做加权 RRF 融合。 | `chunk_vector_index`、`graph_tables`、`graph_vector_index` |
-| `heta_rerank_search` | Heta 混合检索和关键词检索做 RRF 融合，并在提供 reranker 时重排候选。 | `chunk_vector_index`、`chunk_text_index`、`graph_tables`、`graph_vector_index` |
+| `heta_rerank_search` | Heta 混合检索和全文检索做 RRF 融合，并在提供 reranker 时重排候选。 | `chunk_vector_index`、`chunk_full_text_index`、`graph_tables`、`graph_vector_index` |
 | `heta_rewrite_search` | 语言模型生成 3 个查询变体，分别执行 Heta 重排检索后再融合结果。 | `models.language`、默认依赖 `heta_rerank_search` 的资产 |
 | `heta_multihop_search` | 最多 3 轮 Heta 重排检索、信息抽取和充分性判断，适合多跳问题。 | `models.language`、默认依赖 `heta_rerank_search` 的资产 |
 
-`vector_search`、`keyword_search` 和 `heta_graph_search` 是基础检索能力；上表中的模式是组合检索能力。组合模式通过 `QueryContext.query(...)` 调用基础能力，因此递归检测、资产检查和 trace 会走同一套路径。
+`vector_search`、`sql_text_search`、`full_text_search` 和 `heta_graph_search` 是基础检索能力；上表中的模式是组合检索能力。组合模式通过 `QueryContext.query(...)` 调用基础能力，因此递归检测、资产检查和 trace 会走同一套路径。
 
 ## hybrid_search
 
@@ -52,7 +52,7 @@ response = await kb.query(
 `heta_rerank_search` 对齐 HetaDB 的高精度检索路径：
 
 1. 调用 `hybrid_search` 召回向量和 Heta 图谱候选。
-2. 调用 `keyword_search` 召回关键词匹配 chunk。
+2. 调用 `full_text_search` 召回全文检索匹配 chunk。
 3. 使用 Reciprocal Rank Fusion 合并候选。
 4. 如果 `KnowledgeModels.reranker` 存在，则调用 rerank 模型重新排序。
 5. 如果没有 reranker，则保留 RRF 排序。

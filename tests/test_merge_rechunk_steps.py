@@ -361,7 +361,7 @@ def test_persist_chunks_config_validates_table_names():
         PersistChunksConfig(table_names=ChunkTableNames(chunks="bad-name"))
 
 
-def test_persist_chunks_declares_keyword_search_asset():
+def test_persist_chunks_declares_sql_text_search_asset():
     step = PersistChunks(
         PersistChunksConfig(
             table_names=ChunkTableNames(chunks="chunks_test"),
@@ -372,7 +372,7 @@ def test_persist_chunks_declares_keyword_search_asset():
 
     capabilities = step.capabilities
 
-    assert "keyword_search" in capabilities.queries
+    assert "sql_text_search" in capabilities.queries
     assert capabilities.search_assets[0].kind == "chunk_text_index"
     assert capabilities.search_assets[0].name == "chunks_test"
     assert capabilities.search_assets[0].store == "stores.sql.primary"

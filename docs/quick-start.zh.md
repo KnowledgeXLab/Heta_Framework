@@ -44,11 +44,17 @@ import os
 from pathlib import Path
 
 from heta_framework.common.models import EmbeddingModel, LanguageModel
-from heta_framework.common.stores import InMemoryVectorStore, LocalObjectStore, SQLStore
+from heta_framework.common.stores import (
+    InMemoryTextIndexStore,
+    InMemoryVectorStore,
+    LocalObjectStore,
+    SQLStore,
+)
 from heta_framework.kb import (
     DocumentParserRegistry,
     EmbedChunks,
     HetaGraphProcedure,
+    IndexFullText,
     IndexVectors,
     KnowledgeBase,
     KnowledgeModels,
@@ -68,6 +74,7 @@ async def main() -> None:
 
     object_store = LocalObjectStore(workspace / "objects")
     vector_store = InMemoryVectorStore()
+    text_index_store = InMemoryTextIndexStore()
     sql_store = SQLStore(f"sqlite:///{workspace / 'knowledge.db'}")
 
     llm = LanguageModel(
@@ -101,11 +108,13 @@ async def main() -> None:
         stores=KnowledgeStores(
             objects=object_store,
             vector=vector_store,
+            text_index=text_index_store,
             sql=sql_store,
         ),
         steps=(
             ParseDocuments(),
             SplitDocuments(),
+            IndexFullText(),
             EmbedChunks(),
             IndexVectors(),
             *HetaGraphProcedure.build().steps(),
@@ -135,7 +144,10 @@ async def main() -> None:
     for result in response.results:
         print("hit:", round(result.score or 0, 4), result.text[:120])
 
+    await llm.aclose()
+    await embedding.aclose()
     await sql_store.aclose()
+    await text_index_store.aclose()
     await vector_store.aclose()
     await object_store.aclose()
 
@@ -154,7 +166,7 @@ python quickstart.py
 
 ```text
 status: succeeded
-queries: ['vector_search']
+queries: ['full_text_search', 'heta_graph_search', 'heta_multihop_search', 'heta_rerank_search', 'heta_rewrite_search', 'hybrid_search', 'vector_search']
 entities: 3
 relations: 2
 hit: 0.72 Heta is a framework for building knowledge bases...

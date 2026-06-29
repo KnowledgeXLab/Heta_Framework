@@ -23,9 +23,12 @@ from heta_framework.kb import (  # noqa: E402
 )
 from heta_framework.common.models import EmbeddingRequest, EmbeddingResult  # noqa: E402
 from heta_framework.common.stores import (  # noqa: E402
+    InMemoryTextIndexStore,
     InMemoryVectorStore,
     LocalObjectStore,
     SQLStore,
+    TextIndexConfig,
+    TextIndexRecord,
     VectorCollectionConfig,
     VectorRecord,
 )
@@ -72,7 +75,7 @@ class FakeKeywordStep:
     def capabilities(self):
         return StepCapabilities(
             artifacts=frozenset({"persist_fake_result"}),
-            queries=frozenset({"keyword_search"}),
+            queries=frozenset({"sql_text_search"}),
             search_assets=(
                 SearchAsset(
                     kind="chunk_text_index",
@@ -85,6 +88,35 @@ class FakeKeywordStep:
 
     async def run(self, context):
         context.set_artifact("persist_fake_result", {"ok": True})
+
+    def cleanup_plan(self, artifacts):
+        return StepCleanupPlan()
+
+
+class FakeFullTextStep:
+    name = "index_full_text_fake"
+
+    @property
+    def requirements(self):
+        return StepRequirements()
+
+    @property
+    def capabilities(self):
+        return StepCapabilities(
+            artifacts=frozenset({"index_full_text_result"}),
+            queries=frozenset({"full_text_search"}),
+            search_assets=(
+                SearchAsset(
+                    kind="chunk_full_text_index",
+                    name="chunk_full_text",
+                    store="text_index",
+                    metadata={"index": "chunk_full_text", "ranking": "bm25"},
+                ),
+            ),
+        )
+
+    async def run(self, context):
+        context.set_artifact("index_full_text_result", {"ok": True})
 
     def cleanup_plan(self, artifacts):
         return StepCleanupPlan()
@@ -312,7 +344,7 @@ def test_knowledge_base_load_preserves_query_capabilities(tmp_path):
     asyncio.run(run())
 
 
-def test_knowledge_base_query_runs_keyword_search():
+def test_knowledge_base_query_runs_sql_text_search():
     async def run():
         sql_store = SQLStore("sqlite:///:memory:")
         await sql_store.execute(
@@ -365,17 +397,68 @@ def test_knowledge_base_query_runs_keyword_search():
         )
 
         kb = await KnowledgeBase.create(recipe=recipe, name="keyword-test")
-        assert "keyword_search" in kb.available_queries
+        assert "sql_text_search" in kb.available_queries
 
-        response = await kb.query("keyword search", mode="keyword_search", top_k=3)
+        response = await kb.query("keyword search", mode="sql_text_search", top_k=3)
 
-        assert response.mode == "keyword_search"
+        assert response.mode == "sql_text_search"
         assert [result.id for result in response.results] == ["chunk_keyword"]
         assert response.results[0].source["object_key"] == "raw/heta.txt"
         assert response.results[0].source["chunk_ids"] == ("chunk_keyword",)
         assert response.results[0].source["page_index"] == 0
         assert response.citations[0].source == response.results[0].source
         await sql_store.aclose()
+
+    asyncio.run(run())
+
+
+def test_knowledge_base_query_runs_full_text_search():
+    async def run():
+        text_index = InMemoryTextIndexStore()
+        await text_index.create_index(TextIndexConfig(name="chunk_full_text"))
+        await text_index.upsert(
+            "chunk_full_text",
+            [
+                TextIndexRecord(
+                    id="chunk_full_text",
+                    text="Heta full text search ranks chunks with BM25.",
+                    metadata={
+                        "document_id": "doc_1",
+                        "source_key": "raw/heta.txt",
+                        "source_name": "heta.txt",
+                        "source_file_type": "txt",
+                        "page_index": 0,
+                        "chunk_index": 0,
+                        "parent_chunk_ids": ["chunk_full_text"],
+                    },
+                ),
+                TextIndexRecord(
+                    id="chunk_other",
+                    text="Unrelated note.",
+                    metadata={"document_id": "doc_2", "source_key": "raw/other.txt"},
+                ),
+            ],
+        )
+        recipe = KnowledgeRecipe(
+            stores=KnowledgeStores(text_index=text_index),
+            steps=(FakeFullTextStep(),),
+        )
+
+        kb = await KnowledgeBase.create(recipe=recipe, name="full-text-keyword-test")
+        assert "full_text_search" in kb.available_queries
+
+        response = await kb.query("full text BM25", mode="full_text_search", top_k=3)
+
+        assert response.mode == "full_text_search"
+        assert [result.id for result in response.results] == ["chunk_full_text"]
+        assert response.results[0].kind == "chunk"
+        assert response.results[0].source["object_key"] == "raw/heta.txt"
+        assert response.results[0].source["chunk_ids"] == ("chunk_full_text",)
+        assert response.results[0].source["page_index"] == 0
+        assert response.results[0].metadata["retrieval_method"] == "full_text_search"
+        assert response.metadata["retrieval_method"] == "full_text_search"
+        assert response.citations[0].source == response.results[0].source
+        await text_index.aclose()
 
     asyncio.run(run())
 

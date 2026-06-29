@@ -9,6 +9,7 @@ CleanupTargetKind = Literal[
     "object_key",
     "runtime_prefix",
     "sql_table",
+    "text_index",
     "vector_collection",
 ]
 
@@ -69,6 +70,11 @@ class KnowledgeBaseDeletePlan:
             target.value for target in self.targets if target.kind == "vector_collection"
         )
 
+    @property
+    def text_indexes(self) -> tuple[str, ...]:
+        """Return full-text indexes in this plan."""
+        return tuple(target.value for target in self.targets if target.kind == "text_index")
+
 
 @dataclass(frozen=True)
 class CleanupIssue:
@@ -94,6 +100,7 @@ class KnowledgeBaseDeleteResult:
     deleted_object_keys: tuple[str, ...] = ()
     deleted_runtime_prefixes: tuple[str, ...] = ()
     dropped_sql_tables: tuple[str, ...] = ()
+    dropped_text_indexes: tuple[str, ...] = ()
     dropped_vector_collections: tuple[str, ...] = ()
     issues: tuple[CleanupIssue, ...] = ()
 
@@ -106,6 +113,7 @@ class KnowledgeBaseDeleteResult:
             tuple(self.deleted_runtime_prefixes),
         )
         object.__setattr__(self, "dropped_sql_tables", tuple(self.dropped_sql_tables))
+        object.__setattr__(self, "dropped_text_indexes", tuple(self.dropped_text_indexes))
         object.__setattr__(
             self,
             "dropped_vector_collections",

@@ -80,7 +80,7 @@ class PersistChunks:
         sql_store_ref = store_ref("sql", self.config.sql_store)
         return StepCapabilities(
             artifacts=frozenset({"persist_chunks_result"}),
-            queries=frozenset({"keyword_search"}),
+            queries=frozenset({"sql_text_search"}),
             search_assets=(
                 SearchAsset(
                     kind="chunk_text_index",

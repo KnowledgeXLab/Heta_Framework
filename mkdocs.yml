@@ -36,7 +36,8 @@ nav:
       - Search:
           - Query protocols: core-components/search/query-protocols.zh.md
           - Vector search: core-components/search/vector-search.zh.md
-          - Keyword search: core-components/search/keyword-search.zh.md
+          - SQL text search: core-components/search/keyword-search.zh.md
+          - Full-text search: core-components/search/full-text-search.zh.md
           - Heta graph search: core-components/search/heta-graph-search.zh.md
           - Heta query modes: core-components/search/heta-query-modes.zh.md
       - Evaluation:
@@ -55,6 +56,7 @@ nav:
               - Split documents: core-components/steps/split-documents.zh.md
               - Embed chunks: core-components/steps/embed-chunks.zh.md
               - Index vectors: core-components/steps/index-vectors.zh.md
+              - Index full text: core-components/steps/index-full-text.zh.md
           - Heta graph procedure:
               - Merge chunks: core-components/steps/merge-chunks.zh.md
               - Rechunk documents: core-components/steps/rechunk-documents.zh.md
@@ -68,6 +70,7 @@ nav:
       - Stores:
           - Object stores: core-components/stores/object-stores.zh.md
           - SQL stores: core-components/stores/sql-stores.zh.md
+          - Text index stores: core-components/stores/text-index-stores.zh.md
           - Vector stores: core-components/stores/vector-stores.zh.md
           - Graph stores: core-components/stores/graph-stores.zh.md
 

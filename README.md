@@ -151,7 +151,8 @@ asyncio.run(main())
 | `SplitDocuments` | Converts parsed documents into stable chunks. |
 | `EmbedChunks` | Creates embeddings for chunks. |
 | `IndexVectors` | Writes chunk vectors and unlocks `vector_search`. |
-| `PersistChunks` | Writes chunk text to SQL and unlocks `keyword_search`. |
+| `PersistChunks` | Writes chunk text to SQL and unlocks `sql_text_search`. |
+| `IndexFullText` | Writes chunk text to a full-text index and unlocks `full_text_search`. |
 | `HetaGraphProcedure` | Expands into entity, relation, and graph build steps. |
 
 ## Build Patterns
@@ -189,7 +190,7 @@ Unlocked queries:
 available queries: vector_search
 ```
 
-### 2. Vector + Keyword Search
+### 2. Vector + SQL Text Search
 
 Add `SQLStore` and `PersistChunks` when exact terms, product codes, legal
 clauses, or operational phrases matter. This is the same recipe shape with one
@@ -216,13 +217,13 @@ recipe = KnowledgeRecipe(
 
 kb = await KnowledgeBase.create(recipe=recipe, name="keyword-kb")
 semantic = await kb.query("safety checklist", mode="vector_search")
-keyword = await kb.query("aerodynamic stall recovery", mode="keyword_search")
+keyword = await kb.query("aerodynamic stall recovery", mode="sql_text_search")
 ```
 
 Unlocked queries:
 
 ```text
-available queries: keyword_search, vector_search
+available queries: sql_text_search, vector_search
 ```
 
 ### 3. Heta Graph

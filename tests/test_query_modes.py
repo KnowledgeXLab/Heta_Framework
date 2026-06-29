@@ -56,9 +56,9 @@ class FakeVectorEngine:
         )
 
 
-class FakeKeywordEngine:
-    mode = "keyword_search"
-    required_assets = frozenset({SearchAssetRef(kind="chunk_text_index")})
+class FakeFullTextEngine:
+    mode = "full_text_search"
+    required_assets = frozenset({SearchAssetRef(kind="chunk_full_text_index")})
 
     async def query(self, request, context):
         return QueryResponse(
@@ -72,9 +72,9 @@ class FakeKeywordEngine:
                 ),
                 QueryResult(
                     id="chunk_c",
-                    text=f"keyword {request.text}",
+                    text=f"full text {request.text}",
                     score=0.6,
-                    source={"object_key": "raw/keyword.pdf", "chunk_ids": ("chunk_c",)},
+                    source={"object_key": "raw/full-text.pdf", "chunk_ids": ("chunk_c",)},
                 ),
             ),
         )
@@ -172,12 +172,12 @@ class FakeReranker:
         rankings = [
             RerankItem(index=index, score=1.0 - index / 10)
             for index, document in enumerate(request.documents)
-            if "keyword" in document
+            if "full text" in document
         ]
         rankings.extend(
             RerankItem(index=index, score=0.1 - index / 100)
             for index, document in enumerate(request.documents)
-            if "keyword" not in document
+            if "full text" not in document
         )
         return RerankResult(rankings=rankings, model_name=self.model_name)
 
@@ -226,7 +226,7 @@ def test_rerank_search_fuses_candidates_and_uses_reranker():
         context = await _context(
             recipe=KnowledgeRecipe(models=KnowledgeModels(reranker=FakeReranker())),
             engines=QueryEngineRegistry(
-                [FakeHybridEngine(), FakeKeywordEngine(), RerankSearchEngine()]
+                [FakeHybridEngine(), FakeFullTextEngine(), RerankSearchEngine()]
             ),
             assets=_heta_rerank_assets(),
         )
@@ -240,7 +240,7 @@ def test_rerank_search_fuses_candidates_and_uses_reranker():
         assert [result.id for result in response.results] == ["chunk_c", "chunk_b"]
         assert response.metadata["used_reranker"] is True
         assert response.results[0].metadata["reranker_model"] == "test/reranker"
-        assert response.results[0].source["object_key"] == "raw/keyword.pdf"
+        assert response.results[0].source["object_key"] == "raw/full-text.pdf"
         assert response.citations[0].source == response.results[0].source
 
     asyncio.run(run())
@@ -286,7 +286,7 @@ def test_rerank_search_falls_back_to_rrf_without_reranker():
         context = await _context(
             recipe=KnowledgeRecipe(),
             engines=QueryEngineRegistry(
-                [FakeHybridEngine(), FakeKeywordEngine(), RerankSearchEngine()]
+                [FakeHybridEngine(), FakeFullTextEngine(), RerankSearchEngine()]
             ),
             assets=_heta_rerank_assets(),
         )
@@ -300,7 +300,7 @@ def test_rerank_search_falls_back_to_rrf_without_reranker():
         assert [result.id for result in response.results] == ["chunk_b", "chunk_a", "chunk_c"]
         assert response.results[0].metadata["retrieval_modes"] == (
             "hybrid_search",
-            "keyword_search",
+            "full_text_search",
         )
         assert response.results[0].source["object_key"] == "raw/shared.pdf"
         assert response.citations[0].source == response.results[0].source
@@ -313,7 +313,7 @@ def test_query_engine_generates_answer_when_requested():
         context = await _context(
             recipe=KnowledgeRecipe(models=KnowledgeModels(language=FakeLanguageModel())),
             engines=QueryEngineRegistry(
-                [FakeHybridEngine(), FakeKeywordEngine(), RerankSearchEngine()]
+                [FakeHybridEngine(), FakeFullTextEngine(), RerankSearchEngine()]
             ),
             assets=_heta_rerank_assets(),
         )
@@ -340,7 +340,7 @@ def test_query_engine_does_not_fail_when_answer_model_is_missing():
         context = await _context(
             recipe=KnowledgeRecipe(),
             engines=QueryEngineRegistry(
-                [FakeHybridEngine(), FakeKeywordEngine(), RerankSearchEngine()]
+                [FakeHybridEngine(), FakeFullTextEngine(), RerankSearchEngine()]
             ),
             assets=_heta_rerank_assets(),
         )
@@ -449,6 +449,7 @@ def test_default_registry_exposes_all_search_modes_when_assets_and_components_ex
         (
             SearchAsset(kind="chunk_vector_index", name="chunks"),
             SearchAsset(kind="chunk_text_index", name="chunks"),
+            SearchAsset(kind="chunk_full_text_index", name="chunks_full_text"),
             SearchAsset(kind="graph_tables", name="graph"),
             SearchAsset(kind="graph_vector_index", name="graph_vectors"),
         )
@@ -457,7 +458,8 @@ def test_default_registry_exposes_all_search_modes_when_assets_and_components_ex
     assert registry.available_modes_for(recipe, assets) == frozenset(
         {
             "vector_search",
-            "keyword_search",
+            "sql_text_search",
+            "full_text_search",
             "heta_graph_search",
             "hybrid_search",
             "heta_rerank_search",
@@ -481,13 +483,14 @@ def _chunk_assets():
     return (
         SearchAsset(kind="chunk_vector_index", name="chunks"),
         SearchAsset(kind="chunk_text_index", name="chunks"),
+        SearchAsset(kind="chunk_full_text_index", name="chunks_full_text"),
     )
 
 
 def _heta_rerank_assets():
     return (
         SearchAsset(kind="chunk_vector_index", name="chunks"),
-        SearchAsset(kind="chunk_text_index", name="chunks"),
+        SearchAsset(kind="chunk_full_text_index", name="chunks_full_text"),
         SearchAsset(kind="graph_tables", name="graph"),
         SearchAsset(kind="graph_vector_index", name="graph_vectors"),
     )

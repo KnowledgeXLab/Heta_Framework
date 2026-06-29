@@ -24,19 +24,21 @@ class QueryEngineRegistry:
     def defaults(cls) -> "QueryEngineRegistry":
         """Return the built-in query engine registry."""
         from heta_framework.kb.search.engines import (
+            FullTextSearchEngine,
             HetaGraphSearchEngine,
             HybridSearchEngine,
-            KeywordSearchEngine,
             MultiHopSearchEngine,
             RerankSearchEngine,
             RewriteSearchEngine,
+            SqlTextSearchEngine,
             VectorSearchEngine,
         )
 
         return cls(
             [
                 VectorSearchEngine(),
-                KeywordSearchEngine(),
+                SqlTextSearchEngine(),
+                FullTextSearchEngine(),
                 HetaGraphSearchEngine(),
                 HybridSearchEngine(),
                 RerankSearchEngine(),

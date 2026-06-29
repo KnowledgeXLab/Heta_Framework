@@ -34,6 +34,12 @@ from heta_framework.kb.steps.index import (
     IndexVectorsConfig,
     IndexVectorsResult,
 )
+from heta_framework.kb.steps.full_text import (
+    FullTextIndexNames,
+    IndexFullText,
+    IndexFullTextConfig,
+    IndexFullTextResult,
+)
 from heta_framework.kb.steps.merge import MergeChunks, MergeChunksConfig, MergeChunksResult
 from heta_framework.kb.steps.merge_graph_into_store import (
     MergeGraphIntoStore,
@@ -76,6 +82,7 @@ __all__ = [
     "ChunkVectorCollections",
     "GraphTableNames",
     "GraphVectorCollections",
+    "FullTextIndexNames",
     "ComponentRef",
     "DeduplicateEntities",
     "DeduplicateEntitiesConfig",
@@ -98,6 +105,9 @@ __all__ = [
     "IndexVectors",
     "IndexVectorsConfig",
     "IndexVectorsResult",
+    "IndexFullText",
+    "IndexFullTextConfig",
+    "IndexFullTextResult",
     "KnowledgeStepProtocol",
     "MergeChunks",
     "MergeChunksConfig",
