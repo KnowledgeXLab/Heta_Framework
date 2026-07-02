@@ -1,7 +1,7 @@
 site_name: Heta Framework
-site_url: https://hetateam.github.io/Heta_Framework/
-repo_url: https://github.com/HetaTeam/Heta_Framework
-repo_name: HetaTeam/Heta_Framework
+site_url: https://knowledgexlab.github.io/Heta_Framework/
+repo_url: https://github.com/KnowledgeXLab/Heta_Framework
+repo_name: KnowledgeXLab/Heta_Framework
 docs_dir: docs
 site_dir: site
 
@@ -30,12 +30,12 @@ plugins:
           name: 简体中文
           build: true
           site_name: Heta Framework
-          site_url: https://hetateam.github.io/Heta_Framework/
+          site_url: https://knowledgexlab.github.io/Heta_Framework/
         - locale: en
           name: English
           build: true
           site_name: Heta Framework
-          site_url: https://hetateam.github.io/Heta_Framework/en/
+          site_url: https://knowledgexlab.github.io/Heta_Framework/en/
           nav:
             - Home: index.en.md
             - Quick Start: quick-start.en.md

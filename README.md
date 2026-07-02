@@ -43,11 +43,12 @@ pip install heta
 Optional extras:
 
 ```bash
-pip install "heta[sql]"      # SQLStore, keyword search, SQLite/PostgreSQL-style flows
-pip install "heta[postgres]" # PostgreSQL driver for production SQLStore usage
-pip install "heta[mysql]"    # MySQL driver for production SQLStore usage
-pip install "heta[milvus]"   # Milvus vector store
-pip install "heta[s3]"       # S3-compatible object store
+pip install "heta[sql]"          # SQLStore and sql_text_search with SQLite or generic SQL
+pip install "heta[postgres]"     # PostgreSQL driver for SQLStore and PostgreSQL text ranking
+pip install "heta[mysql]"        # MySQL driver for SQLStore
+pip install "heta[milvus]"       # Milvus vector store
+pip install "heta[s3]"           # S3-compatible object store
+pip install "heta[text-index]"   # Elasticsearch-backed full_text_search
 ```
 
 Set a model key. Heta uses LiteLLM model names:
@@ -299,7 +300,7 @@ not hide deployment boundaries from the recipe author.
 ## Development
 
 ```bash
-git clone https://github.com/HetaTeam/Heta_Framework.git
+git clone https://github.com/KnowledgeXLab/Heta_Framework.git
 cd Heta_Framework
 pip install -e ".[dev]"
 pytest

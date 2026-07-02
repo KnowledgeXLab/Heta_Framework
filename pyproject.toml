@@ -22,10 +22,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/HetaTeam/Heta_Framework"
-Documentation = "https://github.com/HetaTeam/Heta_Framework/tree/main/docs"
-Repository = "https://github.com/HetaTeam/Heta_Framework"
-Issues = "https://github.com/HetaTeam/Heta_Framework/issues"
+Homepage = "https://github.com/KnowledgeXLab/Heta_Framework"
+Documentation = "https://github.com/KnowledgeXLab/Heta_Framework/tree/main/docs"
+Repository = "https://github.com/KnowledgeXLab/Heta_Framework"
+Issues = "https://github.com/KnowledgeXLab/Heta_Framework/issues"
 
 [project.optional-dependencies]
 json = [

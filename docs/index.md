@@ -11,7 +11,7 @@ hide:
       <span>Heta Framework</span>
     </a>
     <div class="heta-home__links">
-      <a href="https://github.com/HetaTeam/Heta_Framework">GitHub</a>
+      <a href="https://github.com/KnowledgeXLab/Heta_Framework">GitHub</a>
       <a href="https://knowledgexlab.github.io/">KnowledgeX Lab</a>
       <div class="heta-home__language-switch" aria-label="语言切换">
         <span aria-current="true">中文</span>

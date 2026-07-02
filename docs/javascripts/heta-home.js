@@ -54,7 +54,7 @@ function setupDocsHeader() {
   links.className = "heta-docs__links";
   links.setAttribute("aria-label", "Heta Framework 文档导航");
   links.innerHTML = `
-    <a href="https://github.com/HetaTeam/Heta_Framework">GitHub</a>
+    <a href="https://github.com/KnowledgeXLab/Heta_Framework">GitHub</a>
     <a href="https://knowledgexlab.github.io/">KnowledgeX Lab</a>
   `;
 
