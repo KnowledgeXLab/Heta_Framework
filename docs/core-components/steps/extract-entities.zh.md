@@ -1,6 +1,8 @@
 # Extract Entities
 
-`ExtractEntities` 从 `ParsedChunk` 中抽取图谱实体，并把结果写回 ObjectStore。它只负责实体抽取，不抽取关系、不做实体去重、不写 GraphStore。
+`ExtractEntities` 从 `ParsedChunk` 中抽取图谱实体，并把结果写回 ObjectStore。
+
+它只负责实体抽取，不抽取关系、不做实体去重，也不写入图谱库。
 
 ```text
 ParsedChunk JSON -> ExtractedEntity JSON
@@ -137,4 +139,4 @@ ExtractEntities(
 )
 ```
 
-当输入 chunk 带有 `parent_chunk_ids` 时，`source_chunk_ids` 会继承这些原始 chunk id；否则使用当前 `chunk_id`。这保证了后续关系抽取、去重和 GraphStore 入库仍然可以回溯到原始证据。
+当输入 chunk 带有 `parent_chunk_ids` 时，`source_chunk_ids` 会继承这些原始 chunk id；否则使用当前 `chunk_id`。这保证后续关系抽取、去重和图谱落库仍然可以回溯到原始证据。

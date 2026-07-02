@@ -1,6 +1,8 @@
 # Rechunk Documents
 
-`RechunkDocuments` 是可选的图谱输入增强 step。它按 document/source 聚合 chunks，将文本重新拼接后再切分，输出更稳定的 `ParsedChunk`。
+`RechunkDocuments` 是可选的图谱输入增强 step。
+
+它按 document/source 聚合 chunks，将文本重新拼接后再切分，输出新的 `ParsedChunk`：
 
 ```text
 merged_chunk_keys
@@ -10,7 +12,7 @@ merged_chunk_keys
   -> rechunked_chunk_keys
 ```
 
-它对应 HetaDB 的 `rechunk_by_source` 思路：merge 后的 chunk 不直接进入图谱抽取，而是先按原始文档重新组织边界。
+它对应 HetaDB 的 `rechunk_by_source` 思路：merge 后的 chunk 不直接进入图谱抽取，而是先按原始文档重新组织边界，让后续实体和关系抽取获得更稳定的上下文。
 
 ## Contract
 
@@ -60,6 +62,36 @@ RechunkDocumentsConfig(
 | `overlap` | 相邻 chunk 的 token overlap。 |
 | `encoding_name` | tokenizer 名称。 |
 | `chunk_keys_artifact` | 输入 chunk key artifact 名称。 |
+
+## Requirements
+
+默认 requirements：
+
+```python
+StepRequirements(
+    components=frozenset({
+        store_ref("objects"),
+    }),
+    artifacts=frozenset({
+        "merged_chunk_keys",
+    }),
+)
+```
+
+## Capabilities
+
+`RechunkDocuments` 提供：
+
+```python
+StepCapabilities(
+    artifacts=frozenset({
+        "rechunk_documents_result",
+        "rechunked_chunk_keys",
+    })
+)
+```
+
+它不直接解锁 query mode。它的主要作用是为后续 `PersistChunks`、`ExtractEntities` 和 `ExtractRelations` 提供更适合图谱抽取的文本边界。
 
 ## Output
 

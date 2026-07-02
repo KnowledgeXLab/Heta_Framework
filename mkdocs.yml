@@ -1,10 +1,15 @@
-site_name: Heta
+site_name: Heta Framework
+site_url: https://hetateam.github.io/Heta_Framework/
+repo_url: https://github.com/HetaTeam/Heta_Framework
+repo_name: HetaTeam/Heta_Framework
 docs_dir: docs
 site_dir: site
 
 theme:
   name: material
   language: zh
+  logo: images/heta-icon.png
+  favicon: images/heta-icon.png
   features:
     - content.code.copy
     - navigation.expand
@@ -16,10 +21,102 @@ theme:
 
 plugins:
   - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      languages:
+        - locale: zh
+          default: true
+          name: 简体中文
+          build: true
+          site_name: Heta Framework
+          site_url: https://hetateam.github.io/Heta_Framework/
+        - locale: en
+          name: English
+          build: true
+          site_name: Heta Framework
+          site_url: https://hetateam.github.io/Heta_Framework/en/
+          nav:
+            - Home: index.en.md
+            - Quick Start: quick-start.en.md
+            - Guides:
+                - What is a Recipe: guides/what-is-recipe.en.md
+                - Choose a build path: guides/choose-build-path.en.md
+                - Query a KnowledgeBase: guides/query-knowledge-base.en.md
+                - Evaluate a Recipe: guides/evaluate-recipe.en.md
+                - Load and delete a KnowledgeBase: guides/load-delete-knowledge-base.en.md
+            - Core components:
+                - Knowledge base:
+                    - Knowledge recipe: core-components/knowledge-base/knowledge-recipe.en.md
+                    - KnowledgeBaseBuilder: core-components/knowledge-base/knowledge-base-builder.en.md
+                    - KnowledgeBase: core-components/knowledge-base/knowledge-base.en.md
+                - Models:
+                    - Language models: core-components/models/language-models.en.md
+                    - Embeddings: core-components/models/embeddings.en.md
+                    - Rerankers: core-components/models/rerankers.en.md
+                - Parsers:
+                    - Document parsers: core-components/parsers/document-parsers.en.md
+                - Procedures:
+                    - Knowledge procedures: core-components/procedures/knowledge-procedures.en.md
+                - Search:
+                    - Query protocols: core-components/search/query-protocols.en.md
+                    - Vector search: core-components/search/vector-search.en.md
+                    - SQL text search: core-components/search/keyword-search.en.md
+                    - Full-text search: core-components/search/full-text-search.en.md
+                    - Heta graph search: core-components/search/heta-graph-search.en.md
+                    - Heta query modes: core-components/search/heta-query-modes.en.md
+                - Evaluation:
+                    - Benchmark protocols: core-components/evaluation/benchmark-protocols.en.md
+                    - BenchmarkRunner: core-components/evaluation/benchmark-runner.en.md
+                    - Evaluators: core-components/evaluation/evaluators.en.md
+                    - Evaluation reports: core-components/evaluation/evaluation-reports.en.md
+                    - Benchmarks:
+                        - MultiHop-RAG: core-components/evaluation/multihop-rag.en.md
+                        - UDA-Benchmark: core-components/evaluation/uda-benchmark.en.md
+                        - BEIR: core-components/evaluation/beir.en.md
+                - Steps:
+                    - Step protocols: core-components/steps/step-protocols.en.md
+                    - Document indexing:
+                        - Parse documents: core-components/steps/parse-documents.en.md
+                        - Split documents: core-components/steps/split-documents.en.md
+                        - Embed chunks: core-components/steps/embed-chunks.en.md
+                        - Index vectors: core-components/steps/index-vectors.en.md
+                        - Index full text: core-components/steps/index-full-text.en.md
+                    - Heta graph procedure:
+                        - Merge chunks: core-components/steps/merge-chunks.en.md
+                        - Rechunk documents: core-components/steps/rechunk-documents.en.md
+                        - Persist chunks: core-components/steps/persist-chunks.en.md
+                        - Extract entities: core-components/steps/extract-entities.en.md
+                        - Extract relations: core-components/steps/extract-relations.en.md
+                        - Deduplicate entities: core-components/steps/deduplicate-entities.en.md
+                        - Deduplicate relations: core-components/steps/deduplicate-relations.en.md
+                        - Build graph: core-components/steps/build-graph.en.md
+                        - Merge graph into store: core-components/steps/merge-graph-into-store.en.md
+                - Stores:
+                    - Object stores: core-components/stores/object-stores.en.md
+                    - SQL stores: core-components/stores/sql-stores.en.md
+                    - Text index stores: core-components/stores/text-index-stores.en.md
+                    - Vector stores: core-components/stores/vector-stores.en.md
+                    - Graph stores: core-components/stores/graph-stores.en.md
+
+hooks:
+  - hooks/copy_markdown.py
+
+extra_css:
+  - stylesheets/heta-home.css?v=20260701-sidebar-toc-spacing
+
+extra_javascript:
+  - javascripts/heta-home.js?v=20260701-copy-button
 
 nav:
-  - 首页: index.zh.md
+  - 首页: index.md
   - 快速开始: quick-start.zh.md
+  - Guides:
+      - What is a Recipe: guides/what-is-recipe.zh.md
+      - Choose a build path: guides/choose-build-path.zh.md
+      - Query a KnowledgeBase: guides/query-knowledge-base.zh.md
+      - Evaluate a Recipe: guides/evaluate-recipe.zh.md
+      - Load and delete a KnowledgeBase: guides/load-delete-knowledge-base.zh.md
   - Core components:
       - Knowledge base:
           - Knowledge recipe: core-components/knowledge-base/knowledge-recipe.zh.md
@@ -77,7 +174,11 @@ nav:
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite

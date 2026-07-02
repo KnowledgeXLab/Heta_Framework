@@ -1,8 +1,8 @@
 # Benchmark Protocols
 
-Heta Evaluation 的评价对象是 `KnowledgeRecipe`。
+Heta Evaluation 用来评估一套 `KnowledgeRecipe`，而不是评估一个孤立的 `KnowledgeBase`。
 
-Benchmark 提供数据和默认评估方法，Runner 后续会用指定 recipe 建库、查询、评分，并生成 `EvaluationReport`。
+Benchmark adapter 负责把外部 benchmark 变成 Heta 能理解的输入：文档、问题、标准答案、证据标签和默认评分方法。`BenchmarkRunner` 再用指定 recipe 建库、查询、评分，并生成 `EvaluationReport`。
 
 ```text
 Benchmark
@@ -15,12 +15,13 @@ Benchmark
   -> EvaluationReport
 ```
 
-`KnowledgeBase` 是中间构建产物。
-`EvaluationReport` 是最终评估产物。
+`KnowledgeBase` 是中间构建产物。`EvaluationReport` 是最终评估产物。
+
+这个分层让同一个 benchmark 可以比较多套 recipe，也让同一套 recipe 可以跑多个 benchmark。
 
 ## BenchmarkProtocol
 
-Benchmark adapter 需要满足 `BenchmarkProtocol`：
+每个 benchmark adapter 都实现 `BenchmarkProtocol`：
 
 ```python
 class BenchmarkProtocol(Protocol):
@@ -52,23 +53,23 @@ class BenchmarkProtocol(Protocol):
     def evaluators(self) -> tuple[BenchmarkEvaluatorProtocol, ...]: ...
 ```
 
-职责划分：
+方法职责：
 
 | 方法 | 职责 |
 | --- | --- |
 | `manifest` | 声明 benchmark 名称、版本、split、任务类型和引用信息。 |
-| `resources()` | 声明下载或准备 benchmark 所需的外部资源。 |
+| `resources()` | 声明下载或准备数据需要的外部资源。 |
 | `prepare()` | 下载、解压、校验或定位本地数据，返回 prepared state。 |
 | `documents()` | 产出需要写入 KB `raw/` 的原始文档。 |
 | `cases()` | 产出查询样本、标准答案和证据标签。 |
 | `run_units()` | 声明 Runner 应该建几个 KB，以及每个 KB 使用哪些文档和 cases。 |
 | `evaluators()` | 声明这个 benchmark 默认用哪些方法评分。 |
 
-Benchmark 不负责建库，不调用 query engine，不聚合报告。
+Benchmark adapter 不负责建库，不直接调用 query engine，也不聚合报告。这些由 `BenchmarkRunner` 统一完成。
 
 ## Run Units
 
-`BenchmarkRunUnit` 是一次独立建库和评估的执行单位：
+`BenchmarkRunUnit` 描述一次独立的建库和评估单位：
 
 ```python
 BenchmarkRunUnit(
@@ -90,7 +91,7 @@ BenchmarkRunUnit(
 | `case_ids` | 本 unit 要评估的 case ID。为空表示使用全部 cases。 |
 | `metadata` | benchmark 特有信息，例如 `doc_name`、subset 或 source split。 |
 
-因此 Runner 实际支持两种情况：
+这让 Runner 可以覆盖两类真实 benchmark：
 
 ```text
 corpus unit
@@ -102,7 +103,7 @@ many units
 
 ## Build Scope
 
-`BenchmarkManifest` 声明 `build_scope`：
+`BenchmarkManifest.build_scope` 用来说明 benchmark 的数据组织方式：
 
 ```python
 BenchmarkManifest(
@@ -114,8 +115,7 @@ BenchmarkManifest(
 )
 ```
 
-`build_scope` 是 benchmark 的语义提示，不是 Runner 的执行开关。
-真正的执行计划由 `run_units()` 决定。
+`build_scope` 是语义提示，不是 Runner 的执行开关。真正的执行计划由 `run_units()` 决定。
 
 推荐语义：
 
@@ -145,7 +145,7 @@ ADI_2009.pdf
 
 ## Documents
 
-`BenchmarkDocument` 是 benchmark 输入给 KB 的原始文件：
+`BenchmarkDocument` 是 benchmark 提供给 KB 的原始文档：
 
 ```python
 BenchmarkDocument(
@@ -156,9 +156,7 @@ BenchmarkDocument(
 )
 ```
 
-`document_id` 必须在 benchmark 内稳定唯一。
-`name` 是文件名，不是路径。
-`data`、`path`、`source_uri` 三者必须且只能设置一个。
+`document_id` 必须在 benchmark 内稳定唯一。`name` 是文件名，不是路径。`data`、`path`、`source_uri` 三者必须且只能设置一个。
 
 默认 raw key 规则：
 
@@ -170,7 +168,7 @@ raw/benchmarks/{benchmark_name}/{split}/{document_id}/{name}
 
 ## Cases
 
-`BenchmarkCase` 是一条评估样本：
+`BenchmarkCase` 是一条查询评估样本：
 
 ```python
 BenchmarkCase(
@@ -201,8 +199,7 @@ BenchmarkCase(
 | `value` | 数值、分类、结构化输出等非纯文本答案。 |
 | `metadata` | benchmark 特有信息。 |
 
-`BenchmarkEvidence.locator` 是开放结构。
-内置 evaluator 会识别常见字段，例如：
+`BenchmarkEvidence.locator` 是开放结构。内置 evaluator 会识别常见字段：
 
 ```text
 document_id
@@ -218,7 +215,7 @@ column
 
 ## Evaluators
 
-Benchmark 自己声明默认评估方法：
+Benchmark 自己声明默认评分方法：
 
 ```python
 def evaluators(self):
@@ -235,38 +232,4 @@ Benchmark owns scoring policy.
 Common evaluators are reusable building blocks.
 ```
 
-很多 benchmark 的评估方法和数据标签强耦合。
-因此 evaluator 不是脱离 benchmark 的主角，而是 benchmark 声明出来的评分方法。
-
-通用 evaluator 后续会放在：
-
-```text
-heta_framework.evaluation.evaluators
-```
-
-例如：
-
-```text
-EvidenceRecallAtK
-EvidencePrecisionAtK
-AnswerExactMatch
-AnswerContains
-FaithfulnessJudge
-```
-
-## Custom Benchmark
-
-用户自定义 benchmark 只需要实现同一协议。
-
-最小实现包括：
-
-```text
-manifest
-resources()
-prepare()
-documents()
-cases()
-evaluators()
-```
-
-本地私有 benchmark 可以让 `resources()` 返回空 tuple，并在 `prepare()` 中直接返回已有目录。
+很多 benchmark 的评分方法和数据标签强耦合，所以 evaluator 不是独立于 benchmark 的主角。它是 benchmark 暴露出来的评分方法，同时可以复用 Heta 提供的常见 evaluator。

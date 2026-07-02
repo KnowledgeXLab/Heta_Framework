@@ -1,7 +1,6 @@
 # Knowledge Procedures
 
-`Procedure` 是一段可复用的 step composition。
-它不执行任务，不读取 context，不访问 store，只负责把一段标准做法展开成真实 steps。
+`Procedure` 是一段可复用的 step composition。它不执行任务，不读取 context，不访问 store，只负责把一段标准构建做法展开成真实 steps。
 
 ```text
 Recipe
@@ -11,7 +10,7 @@ Recipe
 
 `Step` 仍然是真正的执行单元。`Procedure` 只做静态接线。
 
-## Contract
+## Protocol
 
 ```python
 @runtime_checkable
@@ -24,19 +23,17 @@ class KnowledgeProcedureProtocol(Protocol):
         ...
 ```
 
-协议里不重复声明 `requirements` 和 `capabilities`。
-单一真相仍然来自展开后的 steps：
+协议里不重复声明 `requirements` 和 `capabilities`。单一真相来自展开后的真实 steps：
 
 ```python
 expanded_steps = procedure.steps()
 ```
 
-Recipe runner 应该基于这些真实 steps 做组件校验、artifact 校验和执行调度。
+Recipe 和 builder 应该基于这些真实 steps 做组件校验、artifact 校验和执行调度。
 
 ## HetaGraphProcedure
 
-`HetaGraphProcedure` 打包 `IndexVectors` 之后的 Heta-style graph build 流程。
-它覆盖的是 HetaDB-style 建图链路，而不是基础向量检索链路。
+`HetaGraphProcedure` 打包 `IndexVectors` 之后的 Heta-style graph build 流程。它覆盖的是 HetaDB-style 建图链路，不是基础向量检索链路。
 
 基础向量检索到 `IndexVectors` 已经完成：
 
@@ -47,7 +44,7 @@ EmbedChunks
 IndexVectors
 ```
 
-`IndexVectors` 之后，如果需要构建 Heta graph，可以进入 `HetaGraphProcedure`：
+如果需要构建 Heta graph，可以在这之后进入 `HetaGraphProcedure`：
 
 ```text
 MergeChunks
@@ -60,8 +57,9 @@ DeduplicateRelations
 BuildGraph / MergeGraphIntoStore
 ```
 
-其中 `MergeChunks`、`RechunkDocuments`、`PersistChunks` 是可选准备步骤。
-它们主要服务于后续图谱抽取、证据查询和溯源，不会重新插入 Milvus 形成另一套 chunk 向量检索库。
+其中 `MergeChunks`、`RechunkDocuments`、`PersistChunks` 是可选准备步骤。它们主要服务于后续图谱抽取、证据查询和溯源，不会重新插入 Milvus 形成另一套 chunk 向量检索库。
+
+## Build A New Graph
 
 一次性落图：
 
@@ -77,7 +75,7 @@ steps = [
 ]
 ```
 
-展开为：
+默认展开为：
 
 ```text
 ExtractEntities
@@ -87,8 +85,7 @@ DeduplicateRelations
 BuildGraph
 ```
 
-如果需要 HetaDB-style chunk merge / rechunk / SQL chunk 持久化，可以在 `HetaGraphProcedure`
-之前显式插入这些 steps：
+如果需要 HetaDB-style chunk merge、rechunk 和 SQL chunk 持久化，可以在进入 procedure 前显式插入准备步骤：
 
 ```python
 steps = [
@@ -103,6 +100,8 @@ steps = [
 ]
 ```
 
+## Merge Into Existing Graph
+
 动态合并入已有图谱库：
 
 ```python
@@ -115,7 +114,7 @@ steps = [
 ]
 ```
 
-展开为：
+默认展开为：
 
 ```text
 ExtractEntities
@@ -140,7 +139,7 @@ steps = [
 ]
 ```
 
-## Static Wiring
+## Artifact Wiring
 
 Procedure 可以统一配置 artifact 名称：
 
@@ -154,8 +153,7 @@ procedure = HetaGraphProcedure.build(
 )
 ```
 
-这些名称会被写入展开后的 step config。
-Procedure 本身不会读取这些 artifacts。
+这些名称会被写入展开后的 step config。Procedure 本身不会读取这些 artifacts。
 
 ## Skip Deduplication
 
@@ -210,24 +208,20 @@ procedure = HetaGraphProcedure.merge_into_store(
 )
 ```
 
-`Procedure` 不引入 `dataset`，也不创建命名策略。
+`Procedure` 不引入 `dataset`，也不创建命名策略。命名策略应由使用方或上层应用决定。
 
-## Boundaries
+## Scope
 
 Procedure 负责：
 
-```text
-静态展开 steps
-配置 step 之间的 artifact 接线
-选择 build / merge_into_store 这类流程分支
-```
+- 静态展开 steps。
+- 配置 step 之间的 artifact 接线。
+- 选择 `build` / `merge_into_store` 这类流程分支。
 
 Procedure 不负责：
 
-```text
-执行 steps
-读取 ObjectStore
-访问 SQL / VectorStore
-校验组件是否存在
-管理 artifact 生命周期
-```
+- 执行 steps。
+- 读取 ObjectStore。
+- 访问 SQL / VectorStore。
+- 校验 runtime components 是否存在。
+- 管理 artifact 生命周期。

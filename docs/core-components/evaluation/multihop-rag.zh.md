@@ -2,6 +2,10 @@
 
 `MultiHopRagBenchmark` 接入官方 MultiHop-RAG benchmark。
 
+MultiHop-RAG 适合评估需要跨多个证据片段回答的问题。它可以用来比较 vector-only recipe、Heta graph recipe、rewrite recipe 和 multihop recipe 在复杂问题上的差异。
+
+## Data Layout
+
 MultiHop-RAG 是 corpus-level benchmark：
 
 ```text
@@ -39,7 +43,7 @@ result = await BenchmarkRunner().run(
 )
 ```
 
-允许 adapter 下载官方文件：
+也可以允许 adapter 下载官方文件：
 
 ```python
 benchmark = MultiHopRagBenchmark(download=True)
@@ -98,8 +102,7 @@ labels.question_type
 
 `evidence_list` 中每条 evidence 会变成 `BenchmarkEvidence`。
 
-Heta query result 的 `source.document_id` 是解析后的内容 ID，不一定等于 benchmark article id。
-因此 MultiHop-RAG adapter 使用 raw `source_key` 做 evidence locator：
+Heta query result 的 `source.document_id` 是解析后的内容 ID，不一定等于 benchmark article id。因此 MultiHop-RAG adapter 使用 raw `source_key` 做 evidence locator：
 
 ```python
 BenchmarkEvidence(
@@ -117,7 +120,7 @@ BenchmarkEvidence(
 )
 ```
 
-这样 `EvidenceRecallAtK` 可以直接通过 query result 的 `source.object_key` / `source.source_key` 判断命中。
+这样 `EvidenceRecallAtK` 可以通过 query result 的 `source.object_key` 或 `source.source_key` 判断是否命中证据来源。
 
 ## Default Evaluators
 
@@ -128,9 +131,10 @@ EvidenceRecallAtK(k=5)
 AnswerContains()
 ```
 
-MultiHop-RAG 更适合测试：
+推荐对比的 query modes：
 
 ```text
+vector_search
 heta_graph_search
 heta_rerank_search
 heta_rewrite_search

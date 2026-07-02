@@ -1,6 +1,8 @@
 # Extract Relations
 
-`ExtractRelations` 从 `ParsedChunk` 和同一 extraction unit 内的 `ExtractedEntity` 中抽取图谱关系。它只负责关系抽取，不做关系去重、不写 GraphStore、不生成 embedding。
+`ExtractRelations` 从 `ParsedChunk` 和同一 extraction unit 内的 `ExtractedEntity` 中抽取图谱关系。
+
+它只负责关系抽取，不做关系去重、不写图谱库，也不生成 embedding。
 
 ```text
 ParsedChunk JSON + ExtractedEntity JSON -> ExtractedRelation JSON

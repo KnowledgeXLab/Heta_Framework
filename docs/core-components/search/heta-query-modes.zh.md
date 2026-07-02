@@ -1,6 +1,17 @@
 # Heta Query Modes
 
-Heta Framework 内置一组对齐 HetaDB 经验的查询模式。它们不是新的存储结构，而是基于已有基础检索能力的组合：
+Heta Framework 内置一组对齐 HetaDB 经验的组合 query modes。它们不是新的存储结构，而是基于已有基础检索能力组合出来的查询策略。
+
+基础 query modes：
+
+```text
+vector_search
+sql_text_search
+full_text_search
+heta_graph_search
+```
+
+组合 query modes：
 
 | 模式 | 作用 | 依赖 |
 | --- | --- | --- |
@@ -9,7 +20,7 @@ Heta Framework 内置一组对齐 HetaDB 经验的查询模式。它们不是新
 | `heta_rewrite_search` | 语言模型生成 3 个查询变体，分别执行 Heta 重排检索后再融合结果。 | `models.language`、默认依赖 `heta_rerank_search` 的资产 |
 | `heta_multihop_search` | 最多 3 轮 Heta 重排检索、信息抽取和充分性判断，适合多跳问题。 | `models.language`、默认依赖 `heta_rerank_search` 的资产 |
 
-`vector_search`、`sql_text_search`、`full_text_search` 和 `heta_graph_search` 是基础检索能力；上表中的模式是组合检索能力。组合模式通过 `QueryContext.query(...)` 调用基础能力，因此递归检测、资产检查和 trace 会走同一套路径。
+组合模式通过 `QueryContext.query(...)` 调用基础能力，因此递归检测、资产检查和 trace 会走同一套路径。
 
 ## hybrid_search
 
@@ -17,7 +28,7 @@ Heta Framework 内置一组对齐 HetaDB 经验的查询模式。它们不是新
 
 HetaDB 原实现会把 chunk 向量分数、图谱召回带来的 chunk 出现次数、手写权重混合到一起。这个思路能工作，但不同来源的分数尺度不一致：向量相似度、图谱命中和 occurrence boost 不是同一种量，直接相加容易让某个来源在不同数据集里过强或过弱。
 
-Framework 里改为 weighted RRF：
+Framework 中改为 weighted RRF：
 
 1. 调用 `vector_search` 召回 chunk。
 2. 调用 `heta_graph_search` 召回实体、关系和证据。
@@ -49,7 +60,9 @@ response = await kb.query(
 
 ## heta_rerank_search
 
-`heta_rerank_search` 对齐 HetaDB 的高精度检索路径：
+`heta_rerank_search` 对齐 HetaDB 的高精度检索路径。
+
+默认流程：
 
 1. 调用 `hybrid_search` 召回向量和 Heta 图谱候选。
 2. 调用 `full_text_search` 召回全文检索匹配 chunk。
@@ -71,6 +84,8 @@ response = await kb.query(
 | --- | --- | --- |
 | `candidate_top_k` | `min(top_k * 3, 50)` | 每个基础检索模式召回的候选数量。 |
 | `rrf_k` | `60` | RRF 平滑参数。 |
+
+没有 `reranker` 时，`heta_rerank_search` 仍然可用，会退化为 RRF 融合排序。
 
 ## heta_rewrite_search
 
@@ -133,7 +148,7 @@ response = await kb.query(
 
 `heta_multihop_search` 会在 `metadata["round_reports"]` 中记录每轮查询、召回数量、是否抽取到有用信息、是否已经作答和下一轮查询。异常或降级情况写入 `metadata["issues"]`，例如无结果、没有抽取到有用信息，或达到最大轮数后只能生成保守回答。
 
-## Recipe 配置
+## Recipe Requirements
 
 组合查询模式依赖已有组件：
 
@@ -148,4 +163,4 @@ models = KnowledgeModels(
 )
 ```
 
-没有 `reranker` 时，`heta_rerank_search` 仍然可用，会退化为 RRF 融合排序。没有 `language` 时，`heta_rewrite_search` 和 `heta_multihop_search` 不可用。
+没有 `language` 时，`heta_rewrite_search` 和 `heta_multihop_search` 不可用。没有 `reranker` 时，`heta_rerank_search` 会继续使用 RRF 排序。

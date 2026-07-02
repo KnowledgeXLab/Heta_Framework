@@ -7,12 +7,27 @@ build steps 产出的可查询资产
 query engines 需要消费的检索资产
 ```
 
-用户最终通过 `KnowledgeBase` 查询。
-框架内部用 `SearchAsset` 和 `QueryEngine` 保持检索方式可扩展。
+用户最终通过 `KnowledgeBase.query(...)` 查询。框架内部用 `SearchAsset` 和 `QueryEngine` 让检索方式保持可扩展。
+
+## How It Fits Together
+
+```text
+Step
+  -> declares SearchAsset
+
+QueryEngine
+  -> declares required SearchAssetRef
+
+KnowledgeBase
+  -> checks current run assets
+  -> enables matching query modes
+```
+
+这样，一个 query mode 只有在当前 KB 真正构建出所需资产后才会可用。
 
 ## SearchAsset
 
-`SearchAsset` 描述一个 step 构建出的可查询资产。
+`SearchAsset` 描述一个 step 构建出的可查询资产：
 
 ```python
 SearchAsset(
@@ -28,6 +43,7 @@ SearchAsset(
 ```text
 chunk_vector_index
 chunk_text_index
+chunk_full_text_index
 graph_vector_index
 graph_tables
 ```
@@ -36,15 +52,14 @@ graph_tables
 
 ## SearchAssetRef
 
-`SearchAssetRef` 是 QueryEngine 的资产依赖声明。
+`SearchAssetRef` 是 QueryEngine 的资产依赖声明：
 
 ```python
 SearchAssetRef(kind="chunk_vector_index")
 SearchAssetRef(kind="graph_tables", name="default")
 ```
 
-`name=None` 表示任意同类资产都可以满足依赖。
-指定 `name` 时，只有同名资产可以满足依赖。
+`name=None` 表示任意同类资产都可以满足依赖。指定 `name` 时，只有同名资产可以满足依赖。
 
 ## StepCapabilities
 
@@ -65,9 +80,11 @@ StepCapabilities(
 )
 ```
 
-`artifacts` 是 build 过程中的中间产物。
-`queries` 是用户可见的查询能力。
-`search_assets` 是 query engine 实际依赖的存储资产。
+| 字段 | 说明 |
+| --- | --- |
+| `artifacts` | build 过程中的中间产物。 |
+| `queries` | 用户可见的查询能力。 |
+| `search_assets` | query engine 实际依赖的存储资产。 |
 
 ## QueryEngine
 
@@ -98,7 +115,7 @@ class QueryEngineProtocol(Protocol):
 
 ## QueryRequest And QueryResponse
 
-`QueryRequest` 接用户输入：
+`QueryRequest` 接收用户输入：
 
 ```text
 text
@@ -121,7 +138,7 @@ trace
 metadata
 ```
 
-所以它可以接住：
+所以它可以承载：
 
 ```text
 普通向量检索
@@ -134,7 +151,7 @@ citations / provenance
 
 ## Registry
 
-`QueryEngineRegistry` 管理 query engines。
+`QueryEngineRegistry` 管理 query engines：
 
 ```python
 registry = QueryEngineRegistry([VectorSearchEngine()])
@@ -153,4 +170,4 @@ engine.required_components
 recipe.models / recipe.stores / recipe.parsers
 ```
 
-`KnowledgeBase.available_queries` 和 `KnowledgeBase.query()` 基于这个 registry 工作。
+`KnowledgeBase.available_queries` 和 `KnowledgeBase.query()` 都基于这个 registry 工作。

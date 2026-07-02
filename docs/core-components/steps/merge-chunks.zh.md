@@ -1,6 +1,8 @@
 # Merge Chunks
 
-`MergeChunks` 是可选的 chunk 质量增强 step。它使用向量相似度召回候选 chunk，再由 LLM 判断哪些候选与主 chunk 语义重复，并将合并结果写回一个临时 merge collection。
+`MergeChunks` 是可选的 chunk 质量增强 step。
+
+它使用向量相似度召回候选 chunk，再由 LLM 判断哪些候选与主 chunk 语义重复，并将合并结果写回一个临时 merge collection。
 
 ```text
 ParsedChunk JSON + ChunkEmbedding JSON

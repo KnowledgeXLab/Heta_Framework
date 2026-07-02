@@ -2,7 +2,11 @@
 
 `UdaBenchmark` 接入 UDA-Benchmark 的单个 subset。
 
-UDA-Benchmark 面向真实文档分析场景，包含金融、表格、论文和百科类问答。Heta 以 subset 为粒度运行 UDA：
+UDA-Benchmark 面向真实文档分析场景，包含金融、表格、论文和百科类问答。它适合评估 recipe 在“围绕具体文档建库并回答问题”这一类场景中的效果。
+
+## Data Layout
+
+Heta 以 subset 为粒度运行 UDA：
 
 ```text
 fin
@@ -26,8 +30,7 @@ extended qa info
     answers、evidence、program、context 等增强标签
 ```
 
-UDA 的 QA 通常绑定到 `doc_name`。
-因此 Heta 不把整个 subset 强行混成一个大 KB，而是由 `run_units()` 按文档生成多 KB 执行单位：
+UDA 的 QA 通常绑定到 `doc_name`。因此 Heta 不把整个 subset 强行混成一个大 KB，而是由 `run_units()` 按文档生成多 KB 执行单位：
 
 ```text
 ADI_2009.pdf
@@ -39,7 +42,7 @@ GS_2016.pdf
     -> 跑 GS_2016 对应的 questions
 ```
 
-这可以避免金融年报、表格字段和年份之间互相串扰，也更容易断点和并发。
+这样可以避免金融年报、表格字段和年份之间互相串扰，也更容易断点和并发。
 
 ## Usage
 
@@ -114,8 +117,7 @@ Adapter 会根据 QA CSV 中的 `doc_name` 查找对应原始文档。
 raw/benchmarks/uda_{subset}/all/{document_id}/{name}
 ```
 
-也就是说，下载 cache 只是 benchmark 准备阶段的本地来源；真正参与 KB 构建的是 ObjectStore 里的 raw objects。
-多 KB 模式下，每个 run unit 只会把自己需要的 document keys 作为 `source_keys` 传给 recipe。
+下载 cache 只是 benchmark 准备阶段的本地来源；真正参与 KB 构建的是 ObjectStore 里的 raw objects。多 KB 模式下，每个 run unit 只会把自己需要的 document keys 作为 `source_keys` 传给 recipe。
 
 ## Document Mapping
 

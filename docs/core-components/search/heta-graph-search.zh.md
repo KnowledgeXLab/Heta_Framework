@@ -2,7 +2,7 @@
 
 `heta_graph_search` 检索 `BuildGraph` 或 `MergeGraphIntoStore` 写入的 Heta-style graph store。
 
-它对齐 HetaDB 的图检索语义：先从图向量库召回 entity / relation，再回 SQL 图表补全结构化事实和 evidence。
+它对齐 HetaDB 的图检索语义：先从图向量库召回 entities / relations，再回 SQL 图表补全结构化事实和 evidence。
 
 ## Required Assets
 
@@ -96,8 +96,8 @@ relation_endpoint
 
 `metadata["evidence"]` 会包含相关 chunk 来源。
 
-## Boundary
+## Scope
 
 `heta_graph_search` 只负责图事实召回和局部图上下文补全。
-它不做答案生成、rerank、BM25 融合或多跳 ReAct 推理。
-这些能力应由更高层的 hybrid / multi-hop query engine 组合实现。
+
+它不做答案生成、rerank、BM25 融合或多跳推理。这些能力应由更高层的 hybrid / rewrite / rerank / multi-hop query mode 组合实现。

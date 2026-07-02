@@ -1,16 +1,15 @@
 # Evaluators
 
-Evaluator 是 benchmark 声明出来的评分方法。
+Evaluator 是 benchmark 使用的评分方法。
 
-Heta Evaluation 的原则是：
+Heta Evaluation 遵循一个简单原则：
 
 ```text
 Benchmark owns scoring policy.
 Common evaluators are reusable building blocks.
 ```
 
-因此 evaluator 不是脱离 benchmark 的主角。
-每个 benchmark adapter 应该在 `evaluators()` 中声明自己的默认评估方法。
+也就是说，benchmark adapter 决定默认怎么评分；Heta 提供一组常用 evaluator，避免每个 benchmark 都重复实现 recall、exact match 或 answer contains。
 
 ## Protocol
 
@@ -56,8 +55,7 @@ bool
 str
 ```
 
-`passed` 用于表达可选的 pass/fail 判断。
-`metadata` 用于保留命中证据、缺失证据、judge reason 等调试信息。
+`passed` 用于表达可选的 pass/fail 判断。`metadata` 用于保留命中证据、缺失证据、judge reason 等调试信息。
 
 ## EvidenceRecallAtK
 
@@ -77,8 +75,7 @@ EvidenceRecallAtK(k=5)
 3. text match
 ```
 
-`locator` 支持开放字段。
-内置匹配会识别常见字段：
+`locator` 支持开放字段。内置匹配会识别常见字段：
 
 ```text
 document_id
@@ -88,8 +85,7 @@ page_index
 chunk_id
 ```
 
-如果 query result 的 `source` 里带有这些字段，评估会更准确。
-如果没有，也可以通过 gold evidence 的 `text` 做文本匹配。
+如果 query result 的 `source` 里带有这些字段，评估会更准确。如果没有，也可以通过 gold evidence 的 `text` 做文本匹配。
 
 ## BeirRetrievalMetric
 
@@ -112,9 +108,7 @@ precision
 mrr
 ```
 
-BEIR 的 qrels 是 document-level。
-Heta 的 query result 通常是 chunk-level。
-因此 evaluator 会先把命中的 chunk 映射回 benchmark document id，并按 document 去重，再计算指标。
+BEIR 的 qrels 是 document-level。Heta 的 query result 通常是 chunk-level。因此 evaluator 会先把命中的 chunk 映射回 benchmark document id，并按 document 去重，再计算指标。
 
 默认 BEIR 指标可以直接使用：
 
@@ -136,7 +130,7 @@ AnswerContains()
 
 判断 `QueryResponse.answer` 是否包含任一 `case.expected.answers`。
 
-这个 evaluator 适合宽松 QA 评估。
+这个 evaluator 适合宽松 QA 评估，例如答案可以包含解释性文字，只要覆盖标准答案即可。
 
 ## AnswerExactMatch
 

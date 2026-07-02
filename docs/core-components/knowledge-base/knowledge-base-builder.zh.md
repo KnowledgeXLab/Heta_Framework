@@ -1,7 +1,6 @@
 # KnowledgeBaseBuilder
 
-`KnowledgeBaseBuilder` 是 recipe 的执行器。
-它接收一个 `KnowledgeRecipe`，按顺序执行展开后的 steps，并返回一次构建的运行结果。
+`KnowledgeBaseBuilder` 是 recipe 的执行器。它接收一个 `KnowledgeRecipe`，展开其中的 procedures，按顺序执行 steps，并返回一次构建的运行结果。
 
 ```python
 from heta_framework.kb import KnowledgeBaseBuilder
@@ -9,23 +8,23 @@ from heta_framework.kb import KnowledgeBaseBuilder
 result = await KnowledgeBaseBuilder().build(recipe)
 ```
 
-Builder 不定义知识库结构。
-结构来自 `KnowledgeRecipe`，真正的业务动作来自每个 step。
+Builder 不定义知识库结构。知识库结构来自 `KnowledgeRecipe`，具体业务动作来自每个 step。
 
 ## Responsibilities
 
-`KnowledgeBaseBuilder` 负责：
+Builder 负责把静态 recipe 变成一次真实 build run：
 
-- 调用 `recipe.validate()`。
-- 创建 `StepExecutionContext`。
-- 按顺序执行 steps。
-- 在 steps 之间传递 artifacts。
-- 收集 capabilities。
-- 收集 non-fatal issues。
-- 记录每个 step 的运行状态。
-- 返回 `RecipeRunResult`。
+| 能力 | 说明 |
+| --- | --- |
+| Validate recipe | 运行前调用 `recipe.validate()`。 |
+| Create context | 为 steps 创建 `StepExecutionContext`。 |
+| Run steps | 按 recipe 中声明的顺序执行 steps。 |
+| Pass artifacts | 在 steps 之间传递 artifact map。 |
+| Collect capabilities | 汇总本次构建解锁的 query modes 和 search assets。 |
+| Collect issues | 汇总 steps 上报的 non-fatal issues。 |
+| Record execution | 记录 run record 和每个 step 的状态。 |
 
-运行时检查由 Builder 和 Step 共同完成，例如 object key 是否存在、模型调用是否成功、数据库是否可用。
+运行时检查由 Builder 和 Step 共同完成。例如 object key 是否存在、模型调用是否成功、数据库是否可用，都属于运行时问题，不属于 recipe 静态校验。
 
 ## Build Result
 
@@ -41,14 +40,16 @@ print(result.artifacts.keys())
 
 结果包含：
 
-- `record`：本次构建的运行记录。
-- `artifacts`：最终 artifact map。
-- `capabilities`：本次构建解锁的能力。
-- `issues`：steps 上报的非致命问题。
+| 字段 | 说明 |
+| --- | --- |
+| `record` | 本次构建的运行记录。 |
+| `artifacts` | 构建结束后的 artifact map。 |
+| `capabilities` | 本次构建解锁的能力。 |
+| `issues` | steps 上报的非致命问题。 |
 
 ## Run Records
 
-`RecipeRunRecord` 是一次构建的运行记录。
+`RecipeRunRecord` 是一次构建结束后的记录。
 
 它包含：
 
@@ -62,7 +63,7 @@ capabilities
 issues
 ```
 
-`StepRunRecord` 记录单个 step：
+每个 `StepRunRecord` 记录一个 step：
 
 ```text
 index
@@ -76,23 +77,16 @@ issues
 error
 ```
 
-这些记录是 build report、debug 和断点恢复的基础。
+这些记录用于 build report、debug、query capability 恢复和断点续跑。
 
 ## Run State
 
-`RecipeRunState` 是一次构建过程中的可更新状态。
-它和 `RecipeRunRecord` 的区别是：
+`RecipeRunState` 是构建过程中的可更新状态。它和 `RecipeRunRecord` 的关系是：
 
-```text
-RecipeRunState
-    构建过程中持续更新
-    可以落盘到 ObjectStore
-    记录 current_step、step_records、artifacts、issues
-
-RecipeRunRecord
-    构建结束后的不可变快照
-    用于 manifest、build report 和 query capability
-```
+| 类型 | 用途 |
+| --- | --- |
+| `RecipeRunState` | 构建过程中持续更新，可落盘到 ObjectStore。 |
+| `RecipeRunRecord` | 构建结束后的不可变快照。 |
 
 当 `KnowledgeBase.create()` 为 Builder 传入 `run_state` 时，Builder 会在这些时机更新 state：
 
@@ -103,12 +97,11 @@ step failed
 run finished
 ```
 
-因此即使 Python 进程被 kill、机器重启或外部 API 中断，ObjectStore 中仍然保留最近一次
-run 的状态。
+因此即使 Python 进程被 kill、机器重启或外部 API 中断，ObjectStore 中仍然可以保留最近一次 run 的状态。
 
 ## Resume
 
-Builder 支持跳过之前已经成功的 steps：
+Builder 可以跳过之前已经成功的 steps：
 
 ```python
 from heta_framework.kb import KnowledgeBaseBuilder, KnowledgeBaseBuilderConfig
@@ -128,16 +121,14 @@ result = await builder.build(
 在 `KnowledgeBase.create()` 中，这个过程会自动发生：
 
 ```text
-1. 从 _heta/knowledge_bases/{name}/latest_run.json 找到最近 run
-2. 加载 runs/{run_id}/state.json
-3. 转换为 previous_record
-4. 配置 skip_succeeded_steps=True
-5. 从第一个未成功 step 继续执行
+1. 从 _heta/knowledge_bases/{name}/latest_run.json 找到最近 run。
+2. 加载 runs/{run_id}/state.json。
+3. 转换为 previous_record。
+4. 配置 skip_succeeded_steps=True。
+5. 从第一个未成功 step 继续执行。
 ```
 
-Step 是否能避免重复外部调用，还取决于 step 自身的 artifact 幂等设计。
-例如 `EmbedChunks` 会复用已经存在的 embedding artifact，`ExtractEntities` 和
-`ExtractRelations` 会复用已经存在的 chunk 级抽取结果。
+Step 是否能避免重复外部调用，还取决于 step 自身的 artifact 幂等设计。例如 `EmbedChunks` 会复用已存在的 embedding artifact，`ExtractEntities` 和 `ExtractRelations` 会复用已存在的 chunk 级抽取结果。
 
 ## Failure Behavior
 
@@ -155,5 +146,4 @@ builder = KnowledgeBaseBuilder(
 )
 ```
 
-是否继续执行取决于后续 steps 的 artifact requirements。
-如果必需 artifact 没有产生，后续 step 仍然可能失败。
+继续执行不代表后续 steps 一定能成功。如果必需 artifact 没有产生，后续 step 仍然可能因为 requirements 不满足而失败。

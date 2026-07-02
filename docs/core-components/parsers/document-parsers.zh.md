@@ -1,8 +1,10 @@
 # Document Parsers
 
-Document Parsers 将原始文件 bytes 转换为统一的 `ParsedDocument`。下游切分、索引、图谱抽取和知识库构建流程只依赖这个统一产物，不需要关心文件来自 PDF、HTML、图片、Markdown 还是表格。
+Document Parsers 把原始文件 bytes 转换为统一的 `ParsedDocument`。下游的 split、index、graph extraction 和 query 不需要关心文件来自 PDF、HTML、图片、Markdown 还是表格。
 
-## 快速开始
+Parser 只负责解析，不负责写入存储。写入路径、版本管理和构建编排由 `ObjectStore`、Recipe、KnowledgeBase 或 build steps 负责。
+
+## Quick Start
 
 ```python
 from heta_framework.kb.parsing import TextParser, make_parsed_source
@@ -26,7 +28,7 @@ document.source
 document.pages[0].text
 ```
 
-`document.to_json_bytes()` 可以直接写入 ObjectStore：
+如果需要写入 ObjectStore，可以把结果序列化：
 
 ```python
 await object_store.put(
@@ -35,9 +37,7 @@ await object_store.put(
 )
 ```
 
-Parser 本身不负责写入存储。写入路径、版本管理和 parse 流程编排应由 Recipe、KnowledgeBase 或上层构建步骤负责。
-
-## 统一产物
+## ParsedDocument
 
 所有 parser 输出同一个结构：
 
@@ -61,13 +61,13 @@ ParsedDocument(
 
 | 对象 | 说明 |
 | --- | --- |
-| `ParsedSource` | 原始对象元信息，包括对象 key、文件名、文件类型和内容 SHA-256。 |
+| `ParsedSource` | 原始对象元信息，包括 object key、文件名、文件类型和内容 SHA-256。 |
 | `ParsedPage` | page-like 文本单元。真实 PDF 页面、HTML 页面、图片描述和表格 chunk 都会映射为 page。 |
 | `ParsedDocument` | parser 的统一输出，可序列化为 JSON。 |
 
 `document_id` 由内容 SHA-256 生成。相同内容会得到稳定 ID；文件名变化不会改变内容 ID。
 
-## 内置 Parser
+## Built-In Parsers
 
 | Parser | 文件类型 | 说明 |
 | --- | --- | --- |
@@ -78,11 +78,11 @@ ParsedDocument(
 | `SheetParser` | `csv`, `xls`, `xlsx`, `xlsm`, `xlsb`, `ods`, `odf`, `odt` | 将表格文件转换为 Markdown 表格文本。 |
 | `ImageParser` | `jpg`, `jpeg`, `png`, `gif`, `webp`, `tiff`, `bmp`, `ico` | 使用视觉模型描述独立图片文件。 |
 
-PDF 和 Office parser 依赖 `DocumentExtractorProtocol`。默认场景中可以接入 MinerU extractor；也可以传入用户自己的 extractor。
+PDF 和 Office parser 依赖 `DocumentExtractorProtocol`。默认场景中可以接入 MinerU extractor，也可以传入用户自己的 extractor。
 
-## Registry
+## Parser Registry
 
-`DocumentParserRegistry` 用于注册用户需要的 parser，并按 `file_type` 自动路由。
+`DocumentParserRegistry` 用于注册用户需要的 parser，并按 `file_type` 自动路由：
 
 ```python
 from heta_framework.kb.parsing import DocumentParserRegistry, SheetParser, TextParser
@@ -103,15 +103,15 @@ registry.find_parser("csv")
 registry.get_parser("md")
 ```
 
-同一个 file type 默认不允许被多个 parser 同时注册：
+同一个 file type 默认不允许被多个 parser 同时注册。需要替换已有 parser 时显式声明：
 
 ```python
 registry.register(custom_text_parser, replace=True)
 ```
 
-使用 `replace=True` 可以显式替换已有 parser。这个设计避免 parser 路由被悄悄覆盖。
+这个设计避免 parser 路由被悄悄覆盖。
 
-## 图片解析
+## ImageParser
 
 `ImageParser` 只处理独立图片文件，例如用户直接上传的 `png`、`jpg` 或 `webp`。
 
@@ -127,7 +127,7 @@ vision_model = LanguageModel(
 document = await ImageParser(vision_model).parse(source, image_bytes)
 ```
 
-图片会作为多模态输入发送给视觉模型，返回文本会写入：
+图片会作为多模态输入发送给视觉模型，返回文本写入：
 
 ```text
 Image: chart.png
@@ -148,9 +148,9 @@ parser = ImageParser(
 )
 ```
 
-## 表格解析
+## SheetParser
 
-`SheetParser` 将表格文件转换为 Markdown 表格文本。
+`SheetParser` 将表格文件转换为 Markdown 表格文本：
 
 ```python
 from heta_framework.kb.parsing import SheetParser
@@ -162,11 +162,11 @@ CSV 使用 Python 标准库读取。Excel 和 ODF 文件使用 `python-calamine`
 
 表格 parser 只做格式读取和文本表示规范化：
 
-- 多 sheet 输出为多个 page-like 文本块
-- 空表头补为 `column_1`
-- 日期和时间转换为稳定文本
-- `2018.0` 这类整数型 float 输出为 `2018`
-- Markdown 表格中的 `|` 和换行会被转义或压平
+- 多 sheet 输出为多个 page-like 文本块。
+- 空表头补为 `column_1`。
+- 日期和时间转换为稳定文本。
+- `2018.0` 这类整数型 float 输出为 `2018`。
+- Markdown 表格中的 `|` 和换行会被转义或压平。
 
 表格 parser 不做表格语义推断，例如单位识别、多行表头合并、字段类型判断或 text-to-sql schema 构建。这些能力应放在后续的表格理解或数据库构建步骤中。
 
@@ -181,7 +181,7 @@ parser = SheetParser(
 
 描述会出现在表格第一页的 `Description:` 段落中。
 
-## HTML 解析
+## HtmlParser
 
 `HtmlParser` 解析网页主体文本、标题、描述和表格。图片描述是可选能力：
 
@@ -197,7 +197,7 @@ parser = HtmlParser(
 
 HTML 图片 prompt 与独立图片共用同一套图片描述准则，并额外携带 `image_url`、`alt` 或 `title` 作为提示。网页上下文只作为辅助信息；如果上下文与图片可见内容冲突，以图片内容为准。
 
-## 自定义 Parser
+## Custom Parser
 
 自定义 parser 不需要继承父类，只要满足 `DocumentParserProtocol`：
 
@@ -227,21 +227,21 @@ registry.register(JsonParser())
 document = await registry.parse(source, data)
 ```
 
-## 能力边界
+## Scope
 
 Document Parsers 负责：
 
-- 将原始文件 bytes 转换为 `ParsedDocument`
-- 保留原始来源元信息
-- 将不同格式统一为 page-like 文本
-- 为图片和表格提供必要的默认描述能力
+- 将原始文件 bytes 转换为 `ParsedDocument`。
+- 保留原始来源元信息。
+- 将不同格式统一为 page-like 文本。
+- 为图片和表格提供必要的默认描述能力。
 
 Document Parsers 不负责：
 
-- 原始文件上传和落盘
-- ObjectStore 写入路径管理
-- Chunk 切分
-- 向量索引、图谱抽取或 SQL 建库
-- 版本管理、血缘追踪或 KnowledgeBase 生命周期
+- 原始文件上传和落盘。
+- ObjectStore 写入路径管理。
+- Chunk 切分。
+- 向量索引、图谱抽取或 SQL 建库。
+- 版本管理、血缘追踪或 `KnowledgeBase` 生命周期。
 
 这些能力应由 ObjectStore、Recipe、KnowledgeBase 或后续构建步骤承担。

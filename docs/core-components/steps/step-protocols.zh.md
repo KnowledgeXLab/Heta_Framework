@@ -1,14 +1,14 @@
 # Step Protocols
 
-Build Steps 是 Heta 知识库构建流程中的可组合执行单元。每个 step 都描述一个稳定的构建动作，并声明运行前后可用的能力。
+Build steps 是 Heta 知识库构建流程中的可组合执行单元。每个 step 都描述一个稳定的构建动作，并声明运行前需要什么、运行后产出什么、以及是否解锁新的 query mode。
 
-Step 协议解决三个问题：
+Step 协议解决三个核心问题：
 
 - 这个 step 需要哪些模型、存储、parser 或中间产物
 - 这个 step 完成后会产生哪些 artifacts
 - 这个 step 是否会解锁新的 query mode
 
-这种设计让 Recipe 可以用显式步骤表达知识库能力，而不是用一组难以扩展的布尔开关。
+这种设计让 recipe 可以用显式步骤表达知识库能力，而不是用一组难以扩展的布尔开关。
 
 ```python
 steps = [
@@ -22,16 +22,17 @@ steps = [
 ]
 ```
 
-当前 parser、chunk、embedding、vector、SQL 持久化和 Heta-style graph 构建步骤都复用同一套协议。
+当前 parser、chunk、embedding、vector、SQL 持久化、全文索引和 Heta-style graph 构建步骤都复用同一套协议。
 
 ## Step Groups
 
-Step 是原子执行单元，但文档中可以按常见构建目标分组理解。
-这些分组不是新的执行协议；真正运行时仍然是一组展开后的 steps。
+Step 是原子执行单元，但文档中可以按常见构建目标分组理解。这些分组不是新的执行协议；真正运行时仍然是一组展开后的 steps。
 
 | 分组 | Steps | 说明 |
 | --- | --- | --- |
 | 基础文档索引 | `ParseDocuments`、`SplitDocuments`、`EmbedChunks`、`IndexVectors` | 从原始文件到 chunk 向量索引，完成后提供 `vector_search`。 |
+| 全文索引 | `ParseDocuments`、`SplitDocuments`、`IndexFullText` | 将 chunk text 写入 TextIndexStore，完成后提供 `full_text_search`。 |
+| SQL 文本索引 | `ParseDocuments`、`SplitDocuments`、`PersistChunks` | 将 chunk text 写入 SQLStore，完成后提供 `sql_text_search`。 |
 | Heta graph build | `MergeChunks`、`RechunkDocuments`、`PersistChunks`、`ExtractEntities`、`ExtractRelations`、`DeduplicateEntities`、`DeduplicateRelations`、`BuildGraph` | `IndexVectors` 之后的 HetaDB-style 建图链路。`MergeChunks`、`RechunkDocuments`、`PersistChunks` 是可选准备步骤，服务于后续图谱抽取和溯源，不提供新的 Milvus 检索库。 |
 | Heta graph merge | `MergeChunks`、`RechunkDocuments`、`PersistChunks`、`ExtractEntities`、`ExtractRelations`、`DeduplicateEntities`、`DeduplicateRelations`、`MergeGraphIntoStore` | 动态增量图谱链路，最终合并进已有 SQL/vector graph store。 |
 
@@ -42,20 +43,20 @@ Recipe runner 仍然基于展开后的 steps 做依赖校验和调度。
 
 Step 是构建动作，不是组件容器。
 
-模型、存储和 parser 应放在 Recipe 顶层，由 step 通过组件引用获取。这样 Recipe 可以清楚展示使用了哪些基础组件，step 也不会持有隐式资源。
+模型、存储和 parser 应放在 recipe 顶层，由 step 通过组件引用获取。这样 recipe 可以清楚展示使用了哪些基础组件，step 也不会持有隐式资源。
 
 ```python
 ExtractRelations(model="strong")
 ```
 
-这个写法表示“使用 Recipe 中名为 `strong` 的 language model”，而不是把模型实例直接塞进 step。默认不写名称时，step 使用对应类型的默认组件。
+这个写法表示“使用 recipe 中名为 `strong` 的 language model”，而不是把模型实例直接塞进 step。默认不写名称时，step 使用对应类型的默认组件。
 
 这样做的好处是：
 
-- 简单 Recipe 保持简洁
-- 复杂 Recipe 可以使用多个同类组件
+- 简单 recipe 保持简洁
+- 复杂 recipe 可以使用多个同类组件
 - 执行器可以在运行前统一校验依赖
-- Recipe summary、trace 和序列化更稳定
+- recipe summary、trace 和序列化更稳定
 
 ## Step Contract
 
@@ -85,9 +86,7 @@ class KnowledgeStepProtocol(Protocol):
 | `run` | 执行 step。 |
 | `cleanup_plan` | 声明这个 step 创建的持久化资源，供 `KnowledgeBase.delete()` 统一删除。 |
 
-`requirements` 和 `capabilities` 是执行器做依赖校验和能力开放的基础。
-`cleanup_plan` 不执行删除，只返回由当前 step 负责声明的派生产物。
-原始输入，例如 ObjectStore 中的 `raw/` 文件，不应该进入 cleanup plan。
+`requirements` 和 `capabilities` 是执行器做依赖校验和能力开放的基础。`cleanup_plan` 不执行删除，只返回由当前 step 负责声明的派生产物。原始输入，例如 ObjectStore 中的 `raw/` 文件，不应该进入 cleanup plan。
 
 ## Component References
 
@@ -161,7 +160,7 @@ BuildGraph    -> heta_graph_search
 EnableHybrid  -> hybrid_search
 ```
 
-Hybrid search 不建议由系统自动推导。它通常需要 fusion、rerank、score normalization 和 query rewrite 等策略，应该通过显式 step 表达。
+Hybrid search 不建议由系统自动推导。它通常需要 fusion、rerank、score normalization 和 query rewrite 等策略，应该通过显式 query engine 或显式能力声明表达。
 
 ## Issues
 

@@ -1,9 +1,8 @@
 # Build Graph
 
-`BuildGraph` 把已经抽取好的 `ExtractedEntity` 和 `ExtractedRelation`
-写入 Heta-style PostgreSQL 图谱表和图谱向量索引。
-它是当前图谱构建链路的落库 step，只负责写入实体、关系、证据映射和召回索引，
-不做实体抽取、关系抽取、去重或历史图谱融合。
+`BuildGraph` 把已经抽取好的 `ExtractedEntity` 和 `ExtractedRelation` 写入 Heta-style SQL 图谱表和图谱向量索引。
+
+它是当前图谱构建链路的落库 step，只负责写入实体、关系、证据映射和召回索引，不做实体抽取、关系抽取、去重或历史图谱融合。
 
 ```text
 ExtractedEntity JSON + ExtractedRelation JSON + ParsedChunk JSON
@@ -11,9 +10,7 @@ ExtractedEntity JSON + ExtractedRelation JSON + ParsedChunk JSON
   -> graph_entities / graph_relations
 ```
 
-这一步对齐 HetaDB 的 PostgreSQL 建图模式，但字段命名使用 Heta Framework 的新 schema。
-旧 HetaDB 的 `node_id`、`node1`、`node2`、`semantics` 和 `cluster_chunk_relation`
-在这里被替换为更明确的 `entity_id`、`source_entity_id`、`target_entity_id`、`relation_name` 和 `graph_evidence`。
+这一步对齐 HetaDB 的 PostgreSQL 建图模式，但字段命名使用 Heta Framework 的新 schema。旧 HetaDB 的 `node_id`、`node1`、`node2`、`semantics` 和 `cluster_chunk_relation` 在这里被替换为更明确的 `entity_id`、`source_entity_id`、`target_entity_id`、`relation_name` 和 `graph_evidence`。
 
 ## Contract
 
@@ -58,8 +55,7 @@ relations
 graph_evidence
 ```
 
-生产中通常由应用层命名策略生成表名。`BuildGraph` 不理解任何业务命名上下文，
-只接收最终表名：
+生产中通常由应用层命名策略生成表名。`BuildGraph` 不理解任何业务命名上下文，只接收最终表名：
 
 ```python
 from heta_framework.kb.steps import BuildGraphConfig, GraphTableNames
@@ -89,8 +85,7 @@ graph_entities
 graph_relations
 ```
 
-它们对齐 HetaDB 的图检索方式：向量库负责召回候选 entity/relation id，
-PostgreSQL 表负责根据 id 返回结构化实体、关系和证据 chunk。
+它们对齐 HetaDB 的图检索方式：向量库负责召回候选 entity/relation id，SQL 表负责根据 id 返回结构化实体、关系和证据 chunk。
 
 collection 命名同样由外部策略生成后注入：
 
@@ -109,8 +104,7 @@ config = BuildGraphConfig(
 )
 ```
 
-实体向量文本由实体名称、类型、子类型、描述和属性组成。关系向量文本由起点实体、终点实体、
-关系类型、关系名称、描述和属性组成。
+实体向量文本由实体名称、类型、子类型、描述和属性组成。关系向量文本由起点实体、终点实体、关系类型、关系名称、描述和属性组成。
 
 ## Entities
 
@@ -194,9 +188,7 @@ updated_at
 | `source_name` | `ParsedChunk.source.name` |
 | `metadata` | 当前写入 `page_index` |
 
-`BuildGraph` 会通过 `chunk_keys` 读取 `ParsedChunk`，建立 `chunk_id -> source` 映射。
-如果某个 `source_chunk_id` 不在输入 chunk 集合中，实体或关系仍会写入 SQL，
-但对应 evidence 行会跳过并记录 issue。
+`BuildGraph` 会通过 `chunk_keys` 读取 `ParsedChunk`，建立 `chunk_id -> source` 映射。如果某个 `source_chunk_id` 不在输入 chunk 集合中，实体或关系仍会写入 SQL，但对应 evidence 行会跳过并记录 issue。
 
 ## Configuration
 
@@ -296,4 +288,4 @@ StepIssue(
 )
 ```
 
-`BuildGraph` 只处理当前输入批次。和历史图谱库做全局实体/关系融合，应作为后续独立 step 实现。
+`BuildGraph` 只处理当前输入批次。和历史图谱库做全局实体/关系融合，应使用后续独立 step `MergeGraphIntoStore`。

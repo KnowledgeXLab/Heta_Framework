@@ -1,4 +1,4 @@
-# Full-text Search
+# Full-Text Search
 
 `full_text_search` 检索 `IndexFullText` 写入 TextIndexStore 的 chunk 文本。
 
@@ -60,7 +60,7 @@ text_index = ElasticsearchTextIndexStore(
 )
 ```
 
-返回结果仍然是统一的 `QueryResponse`。每条 `QueryResult` 表示一个 chunk，并包含：
+返回结果仍然是统一的 `QueryResponse`。每条 `QueryResult` 表示一个 chunk：
 
 ```text
 id
@@ -70,9 +70,9 @@ source
 metadata
 ```
 
-`source` 与 `vector_search`、`sql_text_search` 保持一致，包含 document、object key、chunk id、page、chunk index 和 token offset 等溯源字段。
+`source` 与 `vector_search`、`sql_text_search` 保持一致，包含 document、object key、chunk id、page、chunk index 和 token offset 等 provenance 字段。
 
-## Boundary
+## Scope
 
 `full_text_search` 只负责全文检索召回和排序，不负责 SQL chunk 持久化。需要 SQL 证据表时，继续显式加入 `PersistChunks`。
 

@@ -1,17 +1,10 @@
 # Graph Stores
 
-Graph Stores 提供 Heta 与属性图存储系统交互的统一入口。它负责保存实体节点、关系边和属性，用于未来 Neo4j、NebulaGraph、JanusGraph 等属性图模块。
+Graph Stores 是 Heta 的属性图存储协议。它用于保存实体节点、关系边和属性，面向未来 Neo4j、NebulaGraph、JanusGraph 等属性图 adapter。
 
-当前实现包含：
+当前 Heta-style `BuildGraph` 使用 PostgreSQL schema，不依赖 `GraphStoreProtocol`。因此这页描述的是通用属性图扩展接口，不是当前 Heta graph procedure 的落库方式。
 
-- `GraphStoreProtocol`：属性图存储能力协议。
-- `InMemoryGraphStore`：内存实现，用于测试、示例和本地小规模 pipeline。
-- `GraphNode` / `GraphEdge`：图节点和图边的写入对象。
-
-Neo4j、NebulaGraph、JanusGraph 等真实图数据库后续都可以作为 adapter 实现 `GraphStoreProtocol`。
-当前 Heta-style `BuildGraph` 使用 PostgreSQL schema，不依赖 `GraphStoreProtocol`。
-
-## 快速开始
+## Quick Start
 
 ```python
 from heta_framework.common.stores import GraphEdge, GraphNode, InMemoryGraphStore
@@ -52,16 +45,22 @@ await store.upsert_edges(
 )
 ```
 
-## 核心对象
+## Implementations
+
+| Store | 用途 |
+| --- | --- |
+| `InMemoryGraphStore` | 内存实现，不持久化，适合测试、示例和本地小规模 pipeline。 |
+| Future adapters | Neo4j、NebulaGraph、JanusGraph 等可以实现同一协议。 |
+
+## Core Objects
 
 | 对象 | 说明 |
 | --- | --- |
-| `GraphStoreProtocol` | 属性图存储能力协议，用于 Recipe、构建步骤和自定义 store 的类型约束。 |
-| `InMemoryGraphStore` | 内存图存储实现，不持久化，适合测试和 demo。 |
+| `GraphStoreProtocol` | 属性图存储能力协议，用于未来属性图 steps 和自定义 store。 |
 | `GraphNode` | 要写入的节点记录，包含稳定 id、labels 和 properties。 |
 | `GraphEdge` | 要写入的有向边记录，包含稳定 id、起点、终点、关系类型和 properties。 |
 
-## 协议
+## Protocol
 
 ```python
 class GraphStoreProtocol:
@@ -78,7 +77,7 @@ class GraphStoreProtocol:
 
 `GraphStoreProtocol` 是结构化协议，不要求用户继承某个父类。自定义图数据库只要实现这些方法，就可以被后续属性图步骤接收。
 
-## 节点
+## Nodes
 
 ```python
 GraphNode(
@@ -94,11 +93,9 @@ GraphNode(
 )
 ```
 
-`id` 是 upsert 和 delete 的稳定主键。Heta 默认使用 `ExtractedEntity.entity_id` 作为节点 id；
-实体名称保存在 `properties["name"]` 中。这样同名实体经过去重后可以稳定映射到同一个节点，
-也不会把显示名称和数据库主键耦合在一起。
+`id` 是 upsert 和 delete 的稳定主键。Heta 默认使用 `ExtractedEntity.entity_id` 作为节点 id；实体名称保存在 `properties["name"]` 中。这样同名实体经过去重后可以稳定映射到同一个节点，也不会把显示名称和数据库主键耦合在一起。
 
-## 边
+## Edges
 
 ```python
 GraphEdge(
@@ -115,19 +112,18 @@ GraphEdge(
 )
 ```
 
-`type` 表示具体图边类型，对应 Heta 关系协议里的 `name`，也就是旧版 HetaDB 的 `Relation` 字段。
-关系一级类型保存在 `properties["type"]` 中，对应旧版 HetaDB 的 `Type` 字段。
+`type` 表示具体图边类型，对应 Heta 关系协议里的 `name`，也就是旧版 HetaDB 的 `Relation` 字段。关系一级类型保存在 `properties["type"]` 中，对应旧版 HetaDB 的 `Type` 字段。
 
 具体图数据库如果对边类型有命名限制，应在 adapter 内部处理名称转义或映射，不应改变 Heta Framework 的关系语义。
 
-## 能力范围
+## Scope
 
-Graph Stores 层负责：
+Graph Stores 负责：
 
-- 节点写入和更新
-- 边写入和更新
-- 按 id 删除节点和边
-- 按 id 读取节点和边
-- 节点和边计数
+- 节点写入和更新。
+- 边写入和更新。
+- 按 id 删除节点和边。
+- 按 id 读取节点和边。
+- 节点和边计数。
 
-Graph Stores 不负责实体抽取、关系抽取、去重、向量召回、SQL 持久化、历史图谱融合或 KnowledgeBase 生命周期管理。
+Graph Stores 不负责实体抽取、关系抽取、去重、向量召回、SQL 持久化、历史图谱融合或 `KnowledgeBase` 生命周期管理。

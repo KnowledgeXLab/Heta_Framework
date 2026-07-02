@@ -1,8 +1,8 @@
 # Quick Start
 
-这个示例用一个本地文本文件跑通第一个知识库构建。
+这个页面用一个本地文本文件跑通第一个 Heta `KnowledgeBase`。
 
-它覆盖完整的黄金路径：
+第一遍只构建最小向量知识库：
 
 ```text
 raw text
@@ -10,150 +10,46 @@ raw text
   -> SplitDocuments
   -> EmbedChunks
   -> IndexVectors
-  -> HetaGraphProcedure
-  -> KnowledgeBase
+  -> vector_search
 ```
 
-第一遍建议使用本地 ObjectStore、内存 VectorStore 和 SQLite。
-这能让用户先理解 Heta 的构建方式；生产环境再把这些组件替换成 S3、Milvus、PostgreSQL。
+这条路径需要的组件最少，适合先确认安装、模型调用、parser、chunk 和向量检索都能正常工作。后续再按需要加入 full-text search、Heta graph search 或 benchmark。
 
-## 安装
+## Install
 
-在 `heta_framework` 目录下安装本地开发版本：
+Heta 已发布到 PyPI。安装时使用包名 `heta`，代码中使用导入名 `heta_framework`。
+
+最小向量示例只需要核心包：
 
 ```bash
-pip install -e ".[sql]"
+python -m pip install heta
 ```
 
-如果要使用 OpenAI 模型，设置环境变量：
+如果你的项目需要生产存储或全文索引，可以按需安装 extra：
+
+```bash
+python -m pip install "heta[sql]"          # SQLStore and SQLite/PostgreSQL-style flows
+python -m pip install "heta[postgres]"     # PostgreSQL driver
+python -m pip install "heta[mysql]"        # MySQL driver
+python -m pip install "heta[milvus]"       # Milvus VectorStore
+python -m pip install "heta[s3]"           # S3-compatible ObjectStore
+python -m pip install "heta[text-index]"   # Elasticsearch full-text index
+```
+
+设置模型 API key：
 
 ```bash
 export OPENAI_API_KEY="sk-..."
 ```
 
-Heta 的模型层由 LiteLLM 驱动，`model_name` 使用 LiteLLM 的模型命名方式，例如
-`openai/gpt-4o-mini`、`openai/text-embedding-3-small`。
+Heta 的模型层由 LiteLLM 驱动，`model_name` 使用 LiteLLM 的模型命名方式，例如 `openai/gpt-4o-mini`、`openai/text-embedding-3-small`。
 
-## 构建第一个知识库
+## Build Your First KnowledgeBase
 
 创建 `quickstart.py`：
 
 ```python
-import asyncio
-import os
-from pathlib import Path
-
-from heta_framework.common.models import EmbeddingModel, LanguageModel
-from heta_framework.common.stores import (
-    InMemoryTextIndexStore,
-    InMemoryVectorStore,
-    LocalObjectStore,
-    SQLStore,
-)
-from heta_framework.kb import (
-    DocumentParserRegistry,
-    EmbedChunks,
-    HetaGraphProcedure,
-    IndexFullText,
-    IndexVectors,
-    KnowledgeBase,
-    KnowledgeModels,
-    KnowledgeParsers,
-    KnowledgeRecipe,
-    KnowledgeStores,
-    ParseDocuments,
-    SplitDocuments,
-    SplitDocumentsConfig,
-    TextParser,
-)
-
-
-async def main() -> None:
-    workspace = Path("heta-quickstart")
-    workspace.mkdir(exist_ok=True)
-
-    object_store = LocalObjectStore(workspace / "objects")
-    vector_store = InMemoryVectorStore()
-    text_index_store = InMemoryTextIndexStore()
-    sql_store = SQLStore(f"sqlite:///{workspace / 'knowledge.db'}")
-
-    llm = LanguageModel(
-        model_name="openai/gpt-4o-mini",
-        api_key=os.environ["OPENAI_API_KEY"],
-    )
-    embedding = EmbeddingModel(
-        model_name="openai/text-embedding-3-small",
-        api_key=os.environ["OPENAI_API_KEY"],
-    )
-
-    await object_store.put(
-        "raw/heta.txt",
-        (
-            "Heta is a framework for building knowledge bases. "
-            "It uses recipes to compose parsers, language models, embedding models, "
-            "object stores, vector stores, SQL stores, and graph-building steps. "
-            "The HetaGraphProcedure extracts entities and relations from chunks, "
-            "deduplicates them, and writes graph facts into SQL and vector storage."
-        ).encode("utf-8"),
-    )
-
-    recipe = KnowledgeRecipe(
-        parsers=KnowledgeParsers(
-            documents=DocumentParserRegistry([TextParser()]),
-        ),
-        models=KnowledgeModels(
-            language=llm,
-            embedding=embedding,
-        ),
-        stores=KnowledgeStores(
-            objects=object_store,
-            vector=vector_store,
-            text_index=text_index_store,
-            sql=sql_store,
-        ),
-        steps=(
-            ParseDocuments(),
-            SplitDocuments(),
-            IndexFullText(),
-            EmbedChunks(),
-            IndexVectors(),
-            *HetaGraphProcedure.build().steps(),
-        ),
-    )
-    recipe.require_valid()
-
-    kb = await KnowledgeBase.create(
-        recipe=recipe,
-        name="quickstart",
-        description="A first Heta knowledge base.",
-    )
-
-    print("status:", kb.run_record.status)
-    print("queries:", sorted(kb.available_queries))
-
-    entity_count = await sql_store.fetch_one("SELECT COUNT(*) AS count FROM entities")
-    relation_count = await sql_store.fetch_one("SELECT COUNT(*) AS count FROM relations")
-    print("entities:", entity_count["count"] if entity_count else 0)
-    print("relations:", relation_count["count"] if relation_count else 0)
-
-    response = await kb.query(
-        "How does Heta build a knowledge base?",
-        mode="vector_search",
-        top_k=3,
-    )
-    for result in response.results:
-        print("hit:", round(result.score or 0, 4), result.text[:120])
-
-    await llm.aclose()
-    await embedding.aclose()
-    await sql_store.aclose()
-    await text_index_store.aclose()
-    await vector_store.aclose()
-    await object_store.aclose()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+--8<-- "docs/examples/home_vector_case.py"
 ```
 
 运行：
@@ -162,30 +58,49 @@ if __name__ == "__main__":
 python quickstart.py
 ```
 
-成功后会看到类似输出：
+你会看到类似输出：
 
 ```text
-status: succeeded
-queries: ['full_text_search', 'heta_graph_search', 'heta_multihop_search', 'heta_rerank_search', 'heta_rewrite_search', 'hybrid_search', 'vector_search']
-entities: 3
-relations: 2
-hit: 0.72 Heta is a framework for building knowledge bases...
+Heta builds a knowledge base by creating KnowledgeBase objects from Recipe definitions [1].
+Heta builds KnowledgeBase objects from Recipe definitions. Vector search retrieves chunks by semantic similarity.
 ```
 
-实体和关系数量会随模型输出略有变化。
-稳定不变的是构建状态、`vector_search` 查询入口，以及本地目录中的构建产物。
+第一行是 query engine 用检索结果生成的 answer。第二行是命中的原始 chunk evidence。
 
-`SplitDocuments` 默认使用 `cl100k_base` tokenizer。
-如果运行环境完全离线，需要提前缓存 tokenizer 文件，或者临时改成
-`SplitDocuments(SplitDocumentsConfig(encoding_name="unicode"))`。
+这个示例已经完成了三件事：
 
-## 产物位置
+1. 把 `raw/heta.txt` 写入 `LocalObjectStore`。
+2. 用 `TextParser`、`SplitDocuments` 和 `EmbedChunks` 生成 chunk 与 embedding。
+3. 用 `IndexVectors` 建立向量索引，并通过 `vector_search` 查询。
 
-示例会生成：
+## What The Recipe Does
+
+示例中的 recipe 是 Heta 的核心构建单元：
 
 ```text
-heta-quickstart/
-  knowledge.db
+KnowledgeRecipe
+  parsers -> TextParser
+  models  -> LanguageModel + EmbeddingModel
+  stores  -> LocalObjectStore + InMemoryVectorStore
+  steps   -> ParseDocuments -> SplitDocuments -> EmbedChunks -> IndexVectors
+```
+
+`KnowledgeBase.create()` 会执行这份 recipe。构建完成后，`KnowledgeBase` 只开放当前 recipe 真正构建出来的 query mode。
+
+在这个最小示例里：
+
+```text
+available queries: vector_search
+```
+
+如果继续添加其他 steps，新的 query mode 会随之开放。
+
+## Generated Files
+
+示例会生成一个本地 workspace：
+
+```text
+heta-demo-vector/
   objects/
     raw/
       heta.txt
@@ -195,29 +110,91 @@ heta-quickstart/
       ...
     embeddings/
       ...
-    entities/
-      ...
-    relations/
-      ...
-    deduplicated_entities/
-      ...
-    deduplicated_relations/
-      ...
+    _heta/
+      knowledge_bases/
+        home-vector/
+          manifest.json
+          latest_run.json
+          runs/
+            ...
 ```
 
 其中：
 
-- `objects/raw/` 保存原始文件。
-- `objects/parsed/` 保存统一的 `ParsedDocument`。
-- `objects/chunks/` 保存切分后的 `ParsedChunk`。
-- `objects/embeddings/` 保存 chunk embedding 产物。
-- `knowledge.db` 保存 Heta graph 的实体、关系和证据表。
-- `vector_store` 在这个示例里是内存实现，进程结束后不会持久化。
+- `raw/` 保存输入文件。
+- `parsed/` 保存统一的 `ParsedDocument`。
+- `chunks/` 保存切分后的 `ParsedChunk`。
+- `embeddings/` 保存 chunk embedding 产物。
+- `_heta/knowledge_bases/...` 保存 KB 的运行记录，供 `load()`、失败恢复和 `delete()` 使用。
 
-## 替换生产组件
+这个 quickstart 使用 `InMemoryVectorStore`，所以向量索引只存在于当前进程中。生产环境可以替换为 `MilvusVectorStore`。
 
-Recipe 不绑定具体存储实现。
-把本地组件替换成生产组件时，steps 不需要改变：
+## Add More Capabilities
+
+Heta 的构建方式是逐步组合，不需要一开始就选择完整方案。
+
+| 你想要 | 添加什么 | 会得到 |
+| --- | --- | --- |
+| 语义检索 | `EmbedChunks` + `IndexVectors` | `vector_search` |
+| BM25-style 关键词检索 | `IndexFullText` + `TextIndexStore` | `full_text_search` |
+| SQL 文本持久化 | `PersistChunks` + `SQLStore` | `sql_text_search` |
+| Heta 式图谱检索 | `HetaGraphProcedure` + SQL/vector stores | `heta_graph_search` |
+| 混合检索 / rerank / rewrite / multi-hop | vector、full-text、graph 资产组合 | Heta query modes |
+| 评估 recipe | `BenchmarkRunner` + benchmark adapter | `EvaluationReport` |
+
+下一步建议：
+
+- 想知道 Recipe 是什么，看 [What Is A Recipe](guides/what-is-recipe.zh.md)。
+- 想选择构建路径，看 [Choose A Build Path](guides/choose-build-path.zh.md)。
+- 想理解查询方式，看 [Query A KnowledgeBase](guides/query-knowledge-base.zh.md)。
+- 想评估不同构建方案，看 [Evaluate A Recipe](guides/evaluate-recipe.zh.md)。
+
+## Add Heta Graph Search
+
+如果你想继续体验 Heta 式建图，可以在最小向量知识库之后加入 `HetaGraphProcedure`。
+
+这条路径会从 chunk 中抽取 entities 和 relations，并把图谱 facts 写入 SQL 与 vector stores，最后开放 `heta_graph_search`。
+
+它需要 SQL 支持：
+
+```bash
+python -m pip install "heta[sql]"
+```
+
+创建 `graph_quickstart.py`：
+
+```python
+--8<-- "docs/examples/home_graph_case.py"
+```
+
+运行：
+
+```bash
+python graph_quickstart.py
+```
+
+你会看到类似输出：
+
+```text
+Heta creates a KnowledgeBase by building it from recipes. Specifically, the process involves running the steps outlined in the recipes to construct the KnowledgeBase [1][2][3].
+relation Relation: Heta -> KnowledgeBase
+Name: builds
+Type: creates
+Description: Heta builds knowledge bases from recipes.
+```
+
+这个例子使用：
+
+- `LocalObjectStore` 保存原始文本和中间产物。
+- `SQLStore` 保存实体、关系和 evidence。
+- `InMemoryVectorStore` 保存图谱 facts 的向量索引。
+- `HetaGraphProcedure.build(deduplicate=False)` 展开 Heta 式建图 steps。
+
+生产环境可以把 SQLite 换成 PostgreSQL，把内存向量库换成 Milvus。Recipe 的整体结构不需要改变。
+
+## Replace Local Components
+
+Recipe 不绑定具体存储实现。生产环境通常只替换 components，steps 可以保持不变：
 
 ```python
 object_store = S3ObjectStore(...)
@@ -225,27 +202,10 @@ vector_store = MilvusVectorStore(...)
 sql_store = SQLStore("postgresql+psycopg://postgres:postgres@host:5432/postgres")
 ```
 
-同一份 Recipe 仍然通过：
+同一份 recipe 仍然通过：
 
 ```python
 kb = await KnowledgeBase.create(recipe=recipe, name="production-kb")
 ```
 
 完成构建。
-
-## 最小向量知识库
-
-如果第一阶段只需要向量检索，可以先不启用 Heta graph：
-
-```python
-steps=(
-    ParseDocuments(),
-    SplitDocuments(),
-    EmbedChunks(),
-    IndexVectors(),
-)
-```
-
-这时构建完成后只会解锁 `vector_search`。
-需要实体、关系和图谱证据时，再追加 `HetaGraphProcedure.build()` 或
-`HetaGraphProcedure.merge_into_store()`。

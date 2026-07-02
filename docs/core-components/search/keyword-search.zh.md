@@ -40,7 +40,7 @@ for result in response.results:
     print(result.score, result.text)
 ```
 
-返回结果仍然是统一的 `QueryResponse`。每条 `QueryResult` 表示一个 chunk，并包含：
+返回结果仍然是统一的 `QueryResponse`。每条 `QueryResult` 表示一个 chunk：
 
 ```text
 id
@@ -50,7 +50,7 @@ source
 metadata
 ```
 
-`source` 中会包含：
+`source` 中包含：
 
 ```text
 document_id
@@ -81,8 +81,8 @@ ts_rank(content_tsv, plainto_tsquery('simple', :query))
 
 `PersistChunks(dialect="postgresql")` 会创建 `content_tsv` 和 GIN index。
 
-## Boundary
+## Scope
 
-`sql_text_search` 只负责 SQL 文本召回，不做 embedding、rerank、query rewrite 或 hybrid fusion。
+`sql_text_search` 只负责 SQL 文本召回，不做 embedding、rerank、query rewrite、hybrid fusion 或答案生成。
 
 `sql_text_search` 和 `full_text_search` 是并列能力。前者来自 SQL chunk table，后者来自 full-text index。它们不互相依赖，也不自动 fallback。

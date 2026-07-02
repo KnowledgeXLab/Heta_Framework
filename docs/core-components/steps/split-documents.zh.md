@@ -1,6 +1,6 @@
 # Split Documents
 
-`SplitDocuments` 将 `ParsedDocument` JSON 切分为检索用的 `ParsedChunk` JSON。它是 `ParseDocuments` 之后的基础文本切分 step。
+`SplitDocuments` 将 `ParsedDocument` JSON 切分为检索、索引和图谱抽取使用的 `ParsedChunk` JSON。
 
 ```text
 ParsedDocument JSON -> ParsedChunk JSON
@@ -28,7 +28,7 @@ parsed_document_keys
 chunks/
 ```
 
-执行语义：
+执行流程：
 
 ```text
 read parsed_document_keys
@@ -107,7 +107,7 @@ StepCapabilities(
 )
 ```
 
-它不直接提供 query mode。查询能力应由后续 `IndexVectors`、`BuildGraph` 或其它索引 step 提供。
+它不直接提供 query mode。查询能力由后续 `IndexVectors`、`IndexFullText`、`BuildGraph` 或其它索引 step 提供。
 
 ## Artifacts
 
@@ -129,7 +129,7 @@ SplitDocumentsResult(
 | `document_count` | 本次处理的 parsed document 数量。 |
 | `chunk_count` | 本次生成的 chunk 数量。 |
 
-`chunk_keys` 是 `SplitDocumentsResult.chunk_keys` 的快捷 tuple，方便后续 embedding 或 index step 直接读取 chunk JSON。
+`chunk_keys` 是 `SplitDocumentsResult.chunk_keys` 的快捷 tuple，方便后续 embedding、index 或 graph step 直接读取 chunk JSON。
 
 ## Chunk Output
 

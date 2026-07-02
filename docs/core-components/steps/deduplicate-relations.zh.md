@@ -1,6 +1,8 @@
 # Deduplicate Relations
 
-`DeduplicateRelations` 对当前构建批次中的 `ExtractedRelation` 做关系去重，并继续输出 `ExtractedRelation` JSON。它不写 GraphStore，也不和历史图谱库做全局合并。
+`DeduplicateRelations` 对当前构建批次中的 `ExtractedRelation` 做关系去重，并继续输出 `ExtractedRelation` JSON。
+
+它只处理当前 batch，不写图谱库，也不和历史图谱库做全局合并。
 
 ```text
 ExtractedRelation JSON -> ExtractedRelation JSON

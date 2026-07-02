@@ -1,6 +1,8 @@
 # Deduplicate Entities
 
-`DeduplicateEntities` 对当前构建批次中的 `ExtractedEntity` 做实体去重，并继续输出 `ExtractedEntity` JSON。它不写 GraphStore，也不和历史图谱库做全局合并。
+`DeduplicateEntities` 对当前构建批次中的 `ExtractedEntity` 做实体去重，并继续输出 `ExtractedEntity` JSON。
+
+它只处理当前 batch，不写图谱库，也不和历史图谱库做全局合并。
 
 ```text
 ExtractedEntity JSON -> ExtractedEntity JSON

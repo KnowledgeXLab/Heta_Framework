@@ -1,6 +1,6 @@
 # Index Vectors
 
-`IndexVectors` 将 `ParsedChunk` 和 `ChunkEmbedding` 合并为 `VectorRecord`，写入 `VectorStore`。这是当前第一个提供查询能力的 step。
+`IndexVectors` 将 `ParsedChunk` 和 `ChunkEmbedding` 合并为 `VectorRecord`，写入 `VectorStore`。这是最小向量知识库链路中第一个提供查询能力的 step。
 
 ```text
 ParsedChunk JSON + ChunkEmbedding JSON -> VectorStore
@@ -28,7 +28,7 @@ chunk_keys
 chunk_embedding_keys
 ```
 
-执行语义：
+执行流程：
 
 ```text
 read chunk_keys and chunk_embedding_keys
@@ -126,7 +126,7 @@ StepCapabilities(
 )
 ```
 
-`vector_search` 表示当前知识库已经具备向量检索能力。未来 KnowledgeBase/Runner 可以根据这个 query capability 开放对应查询接口。
+`vector_search` 表示当前知识库已经具备向量检索能力。`KnowledgeBase.query(..., mode="vector_search")` 会使用这个能力。
 
 ## Artifacts
 
@@ -169,7 +169,7 @@ VectorRecord(
 )
 ```
 
-metadata 保留了 citation 和定位所需的信息。检索结果可以直接知道命中的 chunk 来自哪个文档、哪个 page-like 单元，以及在该 page token 序列中的范围。
+metadata 保留 citation 和定位所需的信息。检索结果可以直接知道命中的 chunk 来自哪个文档、哪个 page-like 单元，以及在该 page token 序列中的范围。
 
 ## Validation
 

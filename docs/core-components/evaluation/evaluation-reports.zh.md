@@ -1,8 +1,8 @@
 # Evaluation Reports
 
-`EvaluationReport` 是 Heta Evaluation 的核心产物。
+`EvaluationReport` 是 Heta Evaluation 的最终产物。
 
-它记录：
+它记录一次 benchmark run 的完整结果：
 
 ```text
 哪个 recipe
@@ -13,8 +13,7 @@
 整体 summary 是什么
 ```
 
-`KnowledgeBase` 是 recipe 在 benchmark documents 上构建出的中间产物。
-`EvaluationReport` 才是最终评估结果。
+`KnowledgeBase` 是 recipe 在 benchmark documents 上构建出的中间产物。`EvaluationReport` 才是最终评估结果。
 
 ## Report Structure
 
@@ -47,7 +46,7 @@ EvaluationReport(
 | `case_results` | 每个 case、每种 query mode 的详细结果。 |
 | `metadata` | 运行配置、环境信息或 benchmark 特有信息。 |
 
-报告同时保存 recipe 和 KB manifest，是为了让评估结果可追踪、可比较。
+报告同时保存 recipe 和 KB manifest，是为了让结果可追踪、可复现、可比较。
 
 多 KB benchmark 会在 `metadata.run_units` 中记录每个执行单位：
 
@@ -86,7 +85,7 @@ EvaluationCaseResult(
 )
 ```
 
-`response` 使用现有 `QueryResponse`：
+`response` 直接使用 `kb.query(...)` 返回的 `QueryResponse`：
 
 ```text
 results
@@ -96,8 +95,7 @@ trace
 metadata
 ```
 
-这意味着 evaluation 不定义另一套查询结果格式。
-它直接消费 `kb.query(...)` 的标准输出。
+Evaluation 不定义另一套查询结果格式。它直接消费 Heta query layer 的标准输出。
 
 ## EvaluationScore
 
@@ -126,7 +124,7 @@ EvaluationScore(
 
 ## Default Location
 
-如果后续 `BenchmarkRunner` 使用 KB 的 ObjectStore 持久化报告，默认位置是：
+当 `BenchmarkRunner` 使用 KB 的 ObjectStore 持久化报告时，默认位置是：
 
 ```text
 _heta/knowledge_bases/{knowledge_base_name}/evaluations/{report_id}/report.json
@@ -134,12 +132,11 @@ _heta/knowledge_bases/{knowledge_base_name}/evaluations/{report_id}/report.json
 
 这个位置和 KB runtime metadata 保持一致。
 
-如果用户显式提供 output store 或 output prefix，Runner 可以写到用户指定位置。
-如果没有可用 ObjectStore，Runner 仍然可以只返回内存中的 `EvaluationReport`。
+如果用户显式提供 output store 或 output prefix，Runner 可以写到用户指定位置。如果没有可用 ObjectStore，Runner 仍然可以只返回内存中的 `EvaluationReport`。
 
 ## Design Boundary
 
-Evaluation report 不改变 KB。
+`EvaluationReport` 不改变 KB，只记录评估事实。
 
 同一个 recipe 可以跑多个 benchmark：
 

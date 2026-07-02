@@ -1,8 +1,8 @@
 # BenchmarkRunner
 
-`BenchmarkRunner` 是 recipe 评估的执行入口。
+`BenchmarkRunner` 是执行 benchmark 的入口。
 
-它把 benchmark、recipe、query modes 和 evaluators 串成完整评估链路：
+它接收一套 `KnowledgeRecipe` 和一个 benchmark adapter，然后完成建库、查询、评分和报告生成：
 
 ```text
 benchmark.prepare()
@@ -15,6 +15,8 @@ benchmark.cases()
   -> evaluator.evaluate(...)
 EvaluationReport
 ```
+
+因此它评估的是 recipe 的构建方案和查询效果，而不是一个已经手工建好的 KB。
 
 ## Basic Usage
 
@@ -37,7 +39,7 @@ report = result.report
 knowledge_bases = result.knowledge_bases
 ```
 
-返回值是 `BenchmarkRunResult`：
+`BenchmarkRunResult` 包含：
 
 ```text
 knowledge_bases
@@ -46,14 +48,13 @@ benchmark_document_keys
 report_key
 ```
 
-其中 `knowledge_bases` 是本次 benchmark run 构建出的中间 KB。
-`report` 是最终评估产物。
+`knowledge_bases` 是本次 benchmark run 构建出的中间 KB；`report` 是最终评估产物。
 
 ## ObjectStore Requirement
 
-`BenchmarkRunner` 第一版要求 recipe 配置 `stores.objects`。
+`BenchmarkRunner` 要求 recipe 配置 `stores.objects`。
 
-原因是 benchmark documents 必须先写入 ObjectStore：
+原因是 benchmark documents 需要先写入 ObjectStore：
 
 ```text
 raw/benchmarks/{benchmark_name}/{split}/{document_id}/{name}
@@ -66,12 +67,11 @@ benchmark_document_keys
 source_keys
 ```
 
-当前内置 `ParseDocuments` 仍然按 raw prefix 扫描对象。
-如果需要严格只消费 benchmark documents，可以在后续自定义 step 中读取 `source_keys`。
+当前内置 `ParseDocuments` 仍然按 raw prefix 扫描对象。如果需要严格只消费 benchmark documents，可以在后续自定义 step 中读取 `source_keys`。
 
 ## Run Units
 
-`BenchmarkRunner` 支持两种实际运行形态。
+`BenchmarkRunner` 支持两种运行形态。
 
 第一种是单 KB：
 
@@ -108,8 +108,7 @@ BenchmarkRunUnit(
 )
 ```
 
-`document_ids` 和 `case_ids` 为空时表示使用全部文档和全部 cases。
-这就是 corpus-level benchmark 的默认形态。
+`document_ids` 和 `case_ids` 为空时表示使用全部文档和全部 cases。这就是 corpus-level benchmark 的默认形态。
 
 多 KB 模式下，Runner 会为每个 unit 派生一个 KB 名称：
 
@@ -121,7 +120,7 @@ BenchmarkRunUnit(
 
 ## Query Modes
 
-`query_modes` 声明本次评估要调用哪些查询方式：
+`query_modes` 声明本次评估调用哪些查询方式：
 
 ```python
 query_modes=(
@@ -151,12 +150,11 @@ kb.query(
 max_concurrent_queries = 8
 ```
 
-如果 provider 限流较严格，可以调低。
-如果本地 store 和模型服务吞吐更高，可以调高。
+如果 provider 限流较严格，可以调低。如果本地 store 和模型服务吞吐更高，可以调高。
 
 ## Evaluators
 
-默认使用：
+默认使用 benchmark adapter 声明的评分方法：
 
 ```python
 benchmark.evaluators()
@@ -174,12 +172,11 @@ result = await BenchmarkRunner().run(
 )
 ```
 
-覆盖适合临时实验。
-正式 benchmark adapter 应该在 `benchmark.evaluators()` 中声明默认评分策略。
+覆盖适合临时实验。正式 benchmark adapter 应该在 `benchmark.evaluators()` 中声明默认评分策略。
 
 ## Report Persistence
 
-默认情况下，如果 `persist_report=True`，report 会写入 KB ObjectStore：
+默认情况下，`persist_report=True` 时，report 会写入 KB 的 ObjectStore：
 
 ```text
 _heta/knowledge_bases/{knowledge_base_name}/evaluations/{report_id}/report.json
@@ -195,7 +192,7 @@ BenchmarkRunConfig(persist_report=False)
 
 ## JsonlBenchmark
 
-`JsonlBenchmark` 是最小本地 benchmark adapter。
+`JsonlBenchmark` 是最小的本地 benchmark adapter，适合团队快速把自己的测试集接进 Heta。
 
 ```python
 from heta_framework.evaluation import BenchmarkManifest, JsonlBenchmark

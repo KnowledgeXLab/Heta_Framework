@@ -1,6 +1,6 @@
 # Embed Chunks
 
-`EmbedChunks` 为 `ParsedChunk` 生成 embedding，并将结果写成可缓存的 `ChunkEmbedding` JSON。
+`EmbedChunks` 为 `ParsedChunk` 生成 embedding，并将结果写成可缓存、可检查、可复用的 `ChunkEmbedding` JSON。
 
 ```text
 ParsedChunk JSON -> ChunkEmbedding JSON
@@ -29,7 +29,7 @@ chunk_keys
 embeddings/
 ```
 
-执行语义：
+执行流程：
 
 ```text
 read chunk_keys

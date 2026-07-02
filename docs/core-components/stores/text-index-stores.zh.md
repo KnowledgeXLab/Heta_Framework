@@ -1,14 +1,12 @@
 # Text Index Stores
 
-`TextIndexStoreProtocol` 负责全文检索索引。
-
-它只处理一类数据：
+Text Index Stores 是 Heta 的全文检索索引入口。它处理的是：
 
 ```text
 chunk id -> searchable text + metadata
 ```
 
-`IndexFullText` 写入它，`full_text_search` 查询它。它不负责保存原始文件、chunk JSON、向量或图谱。
+`IndexFullText` 写入 `TextIndexStoreProtocol`，`full_text_search` 查询它。它不负责保存原始文件、chunk JSON、向量或图谱事实。
 
 ## Implementations
 
@@ -16,8 +14,8 @@ Heta 当前提供两个实现：
 
 | Store | 用途 |
 | --- | --- |
-| `InMemoryTextIndexStore` | 本地开发、单元测试、轻量 demo |
-| `ElasticsearchTextIndexStore` | 生产全文检索，使用 Elasticsearch BM25 排序 |
+| `InMemoryTextIndexStore` | 本地开发、单元测试和轻量 demo。 |
+| `ElasticsearchTextIndexStore` | 生产全文检索，使用 Elasticsearch BM25 排序。 |
 
 ## Elasticsearch
 
@@ -69,11 +67,24 @@ response = await kb.query(
 )
 ```
 
-## Boundaries
+## Relationship To SQL Text Search
 
-`TextIndexStoreProtocol` 不要求 SQL。`PersistChunks` 和 `IndexFullText` 是两个独立步骤：
+`IndexFullText` 和 `PersistChunks` 是两个独立步骤：
 
-- `PersistChunks` 产出 `sql_text_search`
-- `IndexFullText` 产出 `full_text_search`
+| Step | Store | Query mode | 用途 |
+| --- | --- | --- | --- |
+| `IndexFullText` | `TextIndexStoreProtocol` | `full_text_search` | BM25-style 全文检索。 |
+| `PersistChunks` | `SQLStoreProtocol` | `sql_text_search` | SQL 表持久化和轻量 LIKE 检索。 |
 
-如果业务只需要 Elasticsearch 全文检索，可以只加入 `IndexFullText`。如果还需要 SQL 证据表或轻量 LIKE 检索，再加入 `PersistChunks`。
+如果业务只需要 Elasticsearch 全文检索，可以只加入 `IndexFullText`。如果还需要 SQL 证据表、chunk 表或轻量 LIKE 检索，再加入 `PersistChunks`。
+
+## Scope
+
+Text Index Stores 负责：
+
+- 写入可搜索文本。
+- 保存检索所需 metadata。
+- 根据 query 返回按文本相关性排序的结果。
+- 对接 Elasticsearch 等全文检索系统。
+
+Text Index Stores 不负责原始文件存储、chunk JSON 持久化、embedding、向量检索、图谱构建或 `KnowledgeBase` 生命周期管理。

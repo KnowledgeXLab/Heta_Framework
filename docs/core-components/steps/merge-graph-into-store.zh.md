@@ -1,8 +1,8 @@
 # Merge Graph Into Store
 
 `MergeGraphIntoStore` 把当前 batch 的实体和关系增量合并进已有图谱库。
-它对齐 HetaDB 的动态建库后半段：先用向量召回历史候选，再用 LLM 判断是否合并，
-最后同步更新 SQL 表、图谱向量索引和 evidence。
+
+它对齐 HetaDB 的动态建库后半段：先用向量召回历史候选，再用 LLM 判断是否合并，最后同步更新 SQL 表、图谱向量索引和 evidence。
 
 ```text
 deduplicated entities / relations
@@ -31,8 +31,7 @@ current graph facts -> SQL + vector + evidence
 current graph facts + historical graph store -> updated graph store
 ```
 
-它适合持续导入、增量更新和需要减少历史重复实体/关系的知识库。
-如果目标图谱库为空，它会自然退化为首次写入。
+它适合持续导入、增量更新和需要减少历史重复实体/关系的知识库。如果目标图谱库为空，它会自然退化为首次写入。
 
 ## Contract
 
@@ -66,8 +65,7 @@ merge_graph_into_store_result
 heta_graph_search
 ```
 
-默认输入是 batch 内去重后的实体和关系。也可以配置为读取 `entity_keys` 和
-`relation_keys`，但不建议作为默认建图路径。
+默认输入是 batch 内去重后的实体和关系。也可以配置为读取 `entity_keys` 和 `relation_keys`，但不建议作为默认建图路径。
 
 ## Storage Names
 
@@ -208,8 +206,7 @@ historical evidence retargeted to merged fact id
 ```
 
 例如旧实体和新实体合并后，旧实体指向的 chunk 证据不会丢失。
-旧 evidence 会被改写到合并后的 `entity_id` 或 `relation_id`，再和当前 batch evidence 去重后写回
-`graph_evidence`。
+旧 evidence 会被改写到合并后的 `entity_id` 或 `relation_id`，再和当前 batch evidence 去重后写回 `graph_evidence`。
 
 ## Result
 
@@ -228,5 +225,4 @@ MergeGraphIntoStoreResult(
 )
 ```
 
-`issues` 只记录非致命问题，例如 LLM 返回无效 JSON 或实体合并后关系端点变成同一个实体。
-这类问题不会直接中断 pipeline；step 会保留当前可写入的结果并继续执行。
+`issues` 只记录非致命问题，例如 LLM 返回无效 JSON 或实体合并后关系端点变成同一个实体。这类问题不会直接中断 pipeline；step 会保留当前可写入的结果并继续执行。

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Heta Framework">
+  <path d="M48 14 76 30 48 46 20 30 48 14Z" fill="#f4f1e8"/>
+  <path d="M20 30 48 46v36L20 66V30Z" fill="#7fc5c9"/>
+  <path d="M76 30 48 46v36l28-16V30Z" fill="#0b3e75"/>
+  <path d="M48 14 76 30 48 46 20 30 48 14Z" fill="none" stroke="#2f4858" stroke-opacity=".5" stroke-width="1.4"/>
+  <path d="M20 30v36l28 16 28-16V30" fill="none" stroke="#061f4f" stroke-opacity=".32" stroke-width="1.4"/>
+  <path d="M48 46v36" fill="none" stroke="#ffffff" stroke-opacity=".58" stroke-width="1.4"/>
+  <path d="M28 33 48 44 68 33" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="1.2"/>
+</svg>

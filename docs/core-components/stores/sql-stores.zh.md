@@ -1,14 +1,10 @@
 # SQL Stores
 
-SQL Stores 提供 Heta 与关系型数据库交互的通用入口。它负责连接管理、参数化 SQL 执行、查询返回和事务，不绑定 document、chunk、build job 等 Heta 业务表。
+SQL Stores 是 Heta 与关系型数据库交互的通用入口。它负责连接管理、参数化 SQL 执行、查询返回和事务。
 
-当前实现包含：
+SQLStore 不绑定某一套 Heta 业务表。Document、chunk、graph facts、memory 或业务 metadata 的表结构，都应该由对应 step、procedure 或上层应用决定。
 
-- `SQLStoreProtocol`：SQL 存储能力协议。
-- `SQLStore`：基于 SQLAlchemy engine 的实现。
-- `SQLResult` / `SQLRow`：执行结果和查询行对象。
-
-## 快速开始
+## Quick Start
 
 ```python
 from heta_framework.common.stores import SQLStore
@@ -41,7 +37,7 @@ await store.fetch_all(
 
 不要把用户输入拼接进 SQL 字符串。
 
-## 安装
+## Installation
 
 SQLite：
 
@@ -69,17 +65,17 @@ SQLStore("postgresql+psycopg://user:password@host:5432/db")
 SQLStore("mysql+pymysql://user:password@host:3306/db")
 ```
 
-## 核心对象
+## Core Objects
 
 | 对象 | 说明 |
 | --- | --- |
-| `SQLStoreProtocol` | SQL 存储能力协议，用于 Recipe、memory 和自定义 store 的类型约束。 |
-| `SQLStore` | SQLAlchemy engine 实现。 |
+| `SQLStoreProtocol` | SQL 存储能力协议，用于 Recipe、memory、自定义 store 和 steps。 |
+| `SQLStore` | 基于 SQLAlchemy engine 的实现。 |
 | `SQLTransaction` | 一个事务中的 SQL 执行器。 |
 | `SQLResult` | SQL 执行结果，当前包含 `rowcount`。 |
 | `SQLRow` | 查询返回行，类型为 `dict[str, Any]`。 |
 
-## 方法
+## Methods
 
 ```python
 await store.execute(statement, parameters)
@@ -95,7 +91,7 @@ await store.fetch_all(statement, parameters)
 | `transaction` | 创建事务上下文。 |
 | `aclose` | 关闭 SQLAlchemy engine。 |
 
-## 事务
+## Transactions
 
 ```python
 async with store.transaction() as tx:
@@ -111,14 +107,14 @@ async with store.transaction() as tx:
 
 事务上下文正常退出会提交；如果抛出异常，SQLAlchemy 会回滚。
 
-## 能力范围
+## Scope
 
-SQL Stores 层负责：
+SQL Stores 负责：
 
-- SQLAlchemy engine 管理
-- 参数化 SQL 执行
-- 查询一行或多行
-- 事务上下文
-- SQLite、PostgreSQL、MySQL 等 SQLAlchemy 支持的数据库接入
+- SQLAlchemy engine 管理。
+- 参数化 SQL 执行。
+- 查询一行或多行。
+- 事务上下文。
+- SQLite、PostgreSQL、MySQL 等 SQLAlchemy 支持的数据库接入。
 
-SQL Stores 不负责业务 schema、表迁移、ORM 映射、权限系统或 KnowledgeBase 生命周期管理。业务表结构应该由 Recipe、memory 或更高层模块决定。
+SQL Stores 不负责业务 schema、表迁移、ORM 映射、权限系统或 `KnowledgeBase` 生命周期管理。业务表结构应由 Recipe、memory、step 或更高层模块决定。

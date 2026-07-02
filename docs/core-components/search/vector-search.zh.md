@@ -1,7 +1,6 @@
 # Vector Search
 
-`vector_search` 是第一条内置 QueryEngine。
-它消费 `IndexVectors` 产出的 `chunk_vector_index`，并通过 `KnowledgeBase.query()` 返回 chunk 命中结果。
+`vector_search` 是 Heta 的基础向量检索 query mode。它消费 `IndexVectors` 产出的 `chunk_vector_index`，通过 `KnowledgeBase.query()` 返回语义相似的 chunk。
 
 ## Required Asset
 
@@ -59,7 +58,7 @@ source
 metadata
 ```
 
-`source` 中会包含 chunk 的来源信息，例如：
+`source` 中包含 chunk 的来源信息：
 
 ```text
 document_id
@@ -71,9 +70,7 @@ token_start
 token_end
 ```
 
-## Execution
-
-执行流程：
+## Execution Flow
 
 ```text
 query text
@@ -82,8 +79,7 @@ query text
   -> QueryResponse
 ```
 
-`VectorSearchEngine` 不直接读取 ObjectStore。
-它只依赖 vector record 中的 text 和 metadata。
+`VectorSearchEngine` 不直接读取 ObjectStore。它只依赖 vector record 中的 `text` 和 `metadata`。
 
 ## Filters
 
@@ -97,5 +93,8 @@ response = await kb.query(
 )
 ```
 
-具体 filter 能力取决于底层 vector store。
-内存实现使用 metadata 精确匹配；Milvus 实现会转换为 Milvus filter expression。
+具体 filter 能力取决于底层 vector store。内存实现使用 metadata 精确匹配；Milvus 实现会转换为 Milvus filter expression。
+
+## Scope
+
+`vector_search` 只负责向量召回。它不做 BM25、SQL 文本检索、图谱补全、rerank、query rewrite 或答案生成。

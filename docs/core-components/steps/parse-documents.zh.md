@@ -1,12 +1,12 @@
 # Parse Documents
 
-`ParseDocuments` 将 ObjectStore 中的原始文件解析为统一的 `ParsedDocument` JSON。它是知识库构建链路的入口 step。
+`ParseDocuments` 是知识库构建链路的入口 step。它从 ObjectStore 读取原始文件，并通过 `DocumentParserRegistry` 解析为统一的 `ParsedDocument` JSON。
 
 ```text
 raw objects -> ParsedDocument JSON
 ```
 
-后续 step 会基于这些 parsed documents 继续切分文本、生成 embedding、写入向量库、抽取图谱或构建 SQL 表。
+后续 step 不再关心原文件来自 PDF、HTML、图片还是纯文本，只消费统一的 parsed document。
 
 ## Contract
 
@@ -24,7 +24,7 @@ raw/
 parsed/
 ```
 
-执行语义：
+执行流程：
 
 ```text
 list raw objects
@@ -35,7 +35,7 @@ list raw objects
   -> expose parsed document keys as artifacts
 ```
 
-`ParseDocuments` 不创建 parser registry，也不创建 object store。它只声明依赖，由 Recipe/Runner 在 context 中提供对应组件。
+`ParseDocuments` 不创建 parser registry，也不创建 object store。它只声明依赖，由 recipe 在运行时提供对应组件。
 
 ## Configuration
 
@@ -102,7 +102,7 @@ parsers.documents.strict
 
 ## Capabilities
 
-`ParseDocuments` 提供两个 artifacts：
+完成后提供两个 artifacts：
 
 ```python
 StepCapabilities(
@@ -113,7 +113,7 @@ StepCapabilities(
 )
 ```
 
-它不直接提供 query mode。查询能力应由后续索引或图谱 step 提供。
+它不直接提供 query mode。查询能力由后续索引或图谱 step 解锁。
 
 ## Artifacts
 
@@ -167,7 +167,7 @@ parsed/{document_id}.json
 
 ## Unsupported Files
 
-文件类型是否支持由 `DocumentParserRegistry` 决定。
+文件类型是否支持由 `DocumentParserRegistry` 决定：
 
 ```text
 file suffix -> file_type -> registry.find_parser(file_type)
@@ -180,4 +180,4 @@ file suffix -> file_type -> registry.find_parser(file_type)
 | `skip_unsupported=True` | 跳过文件并记录到 `skipped_keys`。 |
 | `skip_unsupported=False` | 抛出错误。 |
 
-这个设计允许 Recipe 只启用需要的 parser，而不是默认加载所有解析能力。
+这个设计允许 recipe 只启用需要的 parser，而不是默认加载所有解析能力。
