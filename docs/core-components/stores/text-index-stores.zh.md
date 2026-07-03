@@ -22,7 +22,7 @@ Heta 当前提供两个实现：
 安装：
 
 ```bash
-pip install "heta[elasticsearch]"
+pip install "heta-framework[elasticsearch]"
 ```
 
 配置：

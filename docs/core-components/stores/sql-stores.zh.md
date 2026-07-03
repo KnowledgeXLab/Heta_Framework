@@ -42,19 +42,19 @@ await store.fetch_all(
 SQLite：
 
 ```bash
-pip install "heta[sql]"
+pip install "heta-framework[sql]"
 ```
 
 PostgreSQL：
 
 ```bash
-pip install "heta[postgres]"
+pip install "heta-framework[postgres]"
 ```
 
 MySQL：
 
 ```bash
-pip install "heta[mysql]"
+pip install "heta-framework[mysql]"
 ```
 
 连接 URL 示例：

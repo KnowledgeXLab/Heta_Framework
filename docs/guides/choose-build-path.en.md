@@ -48,10 +48,10 @@ If you are running inside the source repository:
 
 | Case | Install | Run |
 | --- | --- | --- |
-| Vector search | `python -m pip install heta` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_vector_case.py` |
-| Full-text search | `python -m pip install heta` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_full_text_case.py` |
-| Heta graph search | `python -m pip install "heta[sql]"` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_graph_case.py` |
-| Benchmark runner | `python -m pip install heta` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_benchmark_case.py` |
+| Vector search | `python -m pip install heta-framework` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_vector_case.py` |
+| Full-text search | `python -m pip install heta-framework` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_full_text_case.py` |
+| Heta graph search | `python -m pip install "heta-framework[sql]"` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_graph_case.py` |
+| Benchmark runner | `python -m pip install heta-framework` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_benchmark_case.py` |
 
 If you use Heta from PyPI, copy the corresponding example into a local script and run it without `PYTHONPATH=src`:
 

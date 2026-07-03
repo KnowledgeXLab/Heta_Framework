@@ -6,12 +6,15 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "heta"
+name = "heta-framework"
 version = "0.1.0"
-description = "Framework-oriented Heta knowledge base toolkit"
+description = "Composable knowledge-base framework for building, searching, and evaluating RAG systems from recipes."
 readme = "README.md"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
+authors = [
+    { name = "KnowledgeX Lab" },
+]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "beautifulsoup4==4.14.3",
@@ -20,10 +23,30 @@ dependencies = [
     "python-calamine==0.6.2",
     "tiktoken==0.13.0",
 ]
+keywords = [
+    "ai-agent",
+    "benchmark",
+    "graph-rag",
+    "knowledge-base",
+    "llm",
+    "rag",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 
 [project.urls]
 Homepage = "https://github.com/KnowledgeXLab/Heta_Framework"
-Documentation = "https://github.com/KnowledgeXLab/Heta_Framework/tree/main/docs"
+Documentation = "https://knowledgexlab.github.io/Heta_Framework/"
 Repository = "https://github.com/KnowledgeXLab/Heta_Framework"
 Issues = "https://github.com/KnowledgeXLab/Heta_Framework/issues"
 

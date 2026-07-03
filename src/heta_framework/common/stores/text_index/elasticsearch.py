@@ -175,7 +175,7 @@ def _create_client(config: ElasticsearchTextIndexStoreConfig) -> Any:
     except ImportError as exc:
         raise ImportError(
             "ElasticsearchTextIndexStore requires the `elasticsearch` package. "
-            "Install it with `pip install 'heta[elasticsearch]'`."
+            "Install it with `pip install 'heta-framework[elasticsearch]'`."
         ) from exc
     return AsyncElasticsearch(
         hosts=config.hosts,
@@ -191,6 +191,6 @@ def _load_bulk_helper() -> _BulkHelper:
     except ImportError as exc:
         raise ImportError(
             "ElasticsearchTextIndexStore requires the `elasticsearch` package. "
-            "Install it with `pip install 'heta[elasticsearch]'`."
+            "Install it with `pip install 'heta-framework[elasticsearch]'`."
         ) from exc
     return async_bulk

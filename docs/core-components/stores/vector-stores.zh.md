@@ -53,7 +53,7 @@ results = await store.search(
 Milvus adapter 是可选依赖：
 
 ```bash
-pip install "heta[milvus]"
+pip install "heta-framework[milvus]"
 ```
 
 ## Implementations

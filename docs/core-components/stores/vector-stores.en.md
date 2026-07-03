@@ -53,7 +53,7 @@ results = await store.search(
 Milvus is optional:
 
 ```bash
-pip install "heta[milvus]"
+pip install "heta-framework[milvus]"
 ```
 
 ## Implementations

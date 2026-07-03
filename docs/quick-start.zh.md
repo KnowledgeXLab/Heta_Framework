@@ -17,23 +17,23 @@ raw text
 
 ## Install
 
-Heta 已发布到 PyPI。安装时使用包名 `heta`，代码中使用导入名 `heta_framework`。
+Heta 已发布到 PyPI。安装时使用包名 `heta-framework`，代码中使用导入名 `heta_framework`。
 
 最小向量示例只需要核心包：
 
 ```bash
-python -m pip install heta
+python -m pip install heta-framework
 ```
 
 如果你的项目需要生产存储或全文索引，可以按需安装 extra：
 
 ```bash
-python -m pip install "heta[sql]"          # SQLStore and SQLite/PostgreSQL-style flows
-python -m pip install "heta[postgres]"     # PostgreSQL driver
-python -m pip install "heta[mysql]"        # MySQL driver
-python -m pip install "heta[milvus]"       # Milvus VectorStore
-python -m pip install "heta[s3]"           # S3-compatible ObjectStore
-python -m pip install "heta[text-index]"   # Elasticsearch full-text index
+python -m pip install "heta-framework[sql]"          # SQLStore and SQLite/PostgreSQL-style flows
+python -m pip install "heta-framework[postgres]"     # PostgreSQL driver
+python -m pip install "heta-framework[mysql]"        # MySQL driver
+python -m pip install "heta-framework[milvus]"       # Milvus VectorStore
+python -m pip install "heta-framework[s3]"           # S3-compatible ObjectStore
+python -m pip install "heta-framework[text-index]"   # Elasticsearch full-text index
 ```
 
 设置模型 API key：
@@ -158,7 +158,7 @@ Heta 的构建方式是逐步组合，不需要一开始就选择完整方案。
 它需要 SQL 支持：
 
 ```bash
-python -m pip install "heta[sql]"
+python -m pip install "heta-framework[sql]"
 ```
 
 创建 `graph_quickstart.py`：

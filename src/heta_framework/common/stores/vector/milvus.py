@@ -241,7 +241,7 @@ def _load_milvus_client() -> Any:
         from pymilvus import MilvusClient
     except ImportError as exc:
         raise ImportError(
-            "pymilvus is not installed; install the `heta[milvus]` extra to use "
+            "pymilvus is not installed; install the `heta-framework[milvus]` extra to use "
             "MilvusVectorStore"
         ) from exc
     return MilvusClient
@@ -252,7 +252,7 @@ def _load_data_type() -> Any:
         from pymilvus import DataType
     except ImportError as exc:
         raise ImportError(
-            "pymilvus is not installed; install the `heta[milvus]` extra to use "
+            "pymilvus is not installed; install the `heta-framework[milvus]` extra to use "
             "MilvusVectorStore"
         ) from exc
     return DataType

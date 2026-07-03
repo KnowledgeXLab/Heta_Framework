@@ -37,18 +37,18 @@ benchmarks.
 ## Install
 
 ```bash
-pip install heta
+pip install heta-framework
 ```
 
 Optional extras:
 
 ```bash
-pip install "heta[sql]"          # SQLStore and sql_text_search with SQLite or generic SQL
-pip install "heta[postgres]"     # PostgreSQL driver for SQLStore and PostgreSQL text ranking
-pip install "heta[mysql]"        # MySQL driver for SQLStore
-pip install "heta[milvus]"       # Milvus vector store
-pip install "heta[s3]"           # S3-compatible object store
-pip install "heta[text-index]"   # Elasticsearch-backed full_text_search
+pip install "heta-framework[sql]"          # SQLStore and sql_text_search with SQLite or generic SQL
+pip install "heta-framework[postgres]"     # PostgreSQL driver for SQLStore and PostgreSQL text ranking
+pip install "heta-framework[mysql]"        # MySQL driver for SQLStore
+pip install "heta-framework[milvus]"       # Milvus vector store
+pip install "heta-framework[s3]"           # S3-compatible object store
+pip install "heta-framework[text-index]"   # Elasticsearch-backed full_text_search
 ```
 
 Set a model key. Heta uses LiteLLM model names:

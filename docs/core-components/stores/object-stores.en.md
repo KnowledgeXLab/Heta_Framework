@@ -53,7 +53,7 @@ ObjectStore rejects empty keys, absolute paths, backslashes, and `..` so local f
 Install:
 
 ```bash
-pip install "heta[s3]"
+pip install "heta-framework[s3]"
 ```
 
 Example:

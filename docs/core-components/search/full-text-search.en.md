@@ -10,7 +10,7 @@ It is intended for BM25, phrase query, analyzers, field boosts, and full-text sy
 Install Elasticsearch support:
 
 ```bash
-pip install "heta[elasticsearch]"
+pip install "heta-framework[elasticsearch]"
 ```
 
 ## Required Asset

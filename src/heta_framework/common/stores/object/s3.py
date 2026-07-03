@@ -155,7 +155,7 @@ def _create_s3_client(config: S3ObjectStoreConfig) -> Any:
         import boto3
         from botocore.config import Config
     except ImportError as exc:
-        raise ImportError("boto3 is not installed; install the `heta[s3]` extra") from exc
+        raise ImportError("boto3 is not installed; install the `heta-framework[s3]` extra") from exc
 
     client_config: dict[str, Any] = {
         "s3": {"addressing_style": config.addressing_style},

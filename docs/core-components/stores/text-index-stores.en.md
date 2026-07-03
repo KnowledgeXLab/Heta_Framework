@@ -20,7 +20,7 @@ chunk id -> searchable text + metadata
 Install:
 
 ```bash
-pip install "heta[elasticsearch]"
+pip install "heta-framework[elasticsearch]"
 ```
 
 Configure:

@@ -125,7 +125,7 @@ def _create_engine(config: SQLStoreConfig) -> Any:
     try:
         from sqlalchemy import create_engine
     except ImportError as exc:
-        raise ImportError("SQLAlchemy is not installed; install the `heta[sql]` extra") from exc
+        raise ImportError("SQLAlchemy is not installed; install the `heta-framework[sql]` extra") from exc
 
     return create_engine(
         config.url,
@@ -138,7 +138,7 @@ def _sql_text(statement: str) -> Any:
     try:
         from sqlalchemy import text
     except ImportError as exc:
-        raise ImportError("SQLAlchemy is not installed; install the `heta[sql]` extra") from exc
+        raise ImportError("SQLAlchemy is not installed; install the `heta-framework[sql]` extra") from exc
     return text(statement)
 
 

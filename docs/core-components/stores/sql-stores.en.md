@@ -42,19 +42,19 @@ Do not concatenate user input into SQL strings.
 SQLite:
 
 ```bash
-pip install "heta[sql]"
+pip install "heta-framework[sql]"
 ```
 
 PostgreSQL:
 
 ```bash
-pip install "heta[postgres]"
+pip install "heta-framework[postgres]"
 ```
 
 MySQL:
 
 ```bash
-pip install "heta[mysql]"
+pip install "heta-framework[mysql]"
 ```
 
 Connection URL examples:

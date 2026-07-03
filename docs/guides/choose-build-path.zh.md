@@ -49,10 +49,10 @@ flowchart LR
 
 | Case | 安装 | 运行 |
 | --- | --- | --- |
-| Vector search | `python -m pip install heta` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_vector_case.py` |
-| Full-text search | `python -m pip install heta` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_full_text_case.py` |
-| Heta graph search | `python -m pip install "heta[sql]"` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_graph_case.py` |
-| Benchmark runner | `python -m pip install heta` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_benchmark_case.py` |
+| Vector search | `python -m pip install heta-framework` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_vector_case.py` |
+| Full-text search | `python -m pip install heta-framework` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_full_text_case.py` |
+| Heta graph search | `python -m pip install "heta-framework[sql]"` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_graph_case.py` |
+| Benchmark runner | `python -m pip install heta-framework` | `OPENAI_API_KEY=... PYTHONPATH=src python docs/examples/home_benchmark_case.py` |
 
 如果你通过 PyPI 使用 Heta，把对应 example 文件内容复制到本地脚本后运行即可，不需要设置 `PYTHONPATH=src`：
 

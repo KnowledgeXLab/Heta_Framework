@@ -17,23 +17,23 @@ This path uses the fewest components. It is the fastest way to confirm that inst
 
 ## Install
 
-Heta is published on PyPI. Install it with the package name `heta`; import it in Python with `heta_framework`.
+Heta is published on PyPI. Install it with the package name `heta-framework`; import it in Python with `heta_framework`.
 
 The minimal vector example only needs the core package:
 
 ```bash
-python -m pip install heta
+python -m pip install heta-framework
 ```
 
 Install extras only when you need production stores or full-text indexing:
 
 ```bash
-python -m pip install "heta[sql]"          # SQLStore and SQLite/PostgreSQL-style flows
-python -m pip install "heta[postgres]"     # PostgreSQL driver
-python -m pip install "heta[mysql]"        # MySQL driver
-python -m pip install "heta[milvus]"       # Milvus VectorStore
-python -m pip install "heta[s3]"           # S3-compatible ObjectStore
-python -m pip install "heta[text-index]"   # Elasticsearch full-text index
+python -m pip install "heta-framework[sql]"          # SQLStore and SQLite/PostgreSQL-style flows
+python -m pip install "heta-framework[postgres]"     # PostgreSQL driver
+python -m pip install "heta-framework[mysql]"        # MySQL driver
+python -m pip install "heta-framework[milvus]"       # Milvus VectorStore
+python -m pip install "heta-framework[s3]"           # S3-compatible ObjectStore
+python -m pip install "heta-framework[text-index]"   # Elasticsearch full-text index
 ```
 
 Set your model API key:
@@ -158,7 +158,7 @@ This path extracts entities and relations from chunks, writes graph facts into S
 It requires SQL support:
 
 ```bash
-python -m pip install "heta[sql]"
+python -m pip install "heta-framework[sql]"
 ```
 
 Create `graph_quickstart.py`:

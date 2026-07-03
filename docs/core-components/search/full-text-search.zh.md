@@ -10,7 +10,7 @@
 安装 Elasticsearch 支持：
 
 ```bash
-pip install "heta[elasticsearch]"
+pip install "heta-framework[elasticsearch]"
 ```
 
 ## Required Asset
