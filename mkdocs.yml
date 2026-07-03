@@ -103,10 +103,10 @@ hooks:
   - hooks/copy_markdown.py
 
 extra_css:
-  - stylesheets/heta-home.css?v=20260701-sidebar-toc-spacing
+  - stylesheets/heta-home.css?v=20260703-pages
 
 extra_javascript:
-  - javascripts/heta-home.js?v=20260701-copy-button
+  - javascripts/heta-home.js?v=20260703-pages
 
 nav:
   - 首页: index.md
