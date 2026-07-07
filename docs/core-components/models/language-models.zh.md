@@ -46,14 +46,21 @@ llm = LanguageModel(
 | 对象 | 说明 |
 | --- | --- |
 | `LanguageModel` | 长生命周期模型客户端，负责请求执行、并发限制和 LiteLLM 调用。 |
+| `ToolCallingLanguageModel` | 显式 opt-in 的工具调用模型客户端，继承普通模型能力，并额外实现 `invoke_with_tools`。 |
 | `LanguageModelProtocol` | 语言模型能力协议，用于 Recipe、steps、query engines 和自定义模型。 |
+| `ToolCallingLanguageModelProtocol` | 工具调用增强协议，用于 agentic query engines 等需要 native tool calling 的组件。 |
 | `ModelRequest` | 一次模型请求，包含 prompt、系统提示词、调用参数和 trace 信息。 |
+| `ToolCallingModelRequest` | 一次工具调用模型请求，包含 chat messages、tools、tool choice 和 trace 信息。 |
 | `TextPart` / `ImagePart` | 多模态请求内容片段，用于图文输入。 |
 | `ModelOptions` | 单次请求参数，例如温度、输出长度、停止序列和结构化输出格式。 |
 | `ModelResult` | 非流式调用结果，包含文本、结构化解析结果、token usage 和原始响应。 |
+| `ToolDefinition` / `ToolCall` / `ToolMessage` | 工具 schema、模型发起的工具调用，以及 tool-calling 对话消息。 |
+| `ToolCallingModelResult` | 工具调用响应，包含 assistant message、tool calls、token usage 和原始响应。 |
 | `ModelChunk` | 流式调用结果，包含当前文本增量、结束原因和原始 chunk。 |
 
 `LanguageModelProtocol` 是结构化协议，不要求用户继承某个父类。自定义语言模型只要实现 `invoke`、`invoke_many` 和 `stream`，就可以被 recipe 或自定义 step 接收。
+
+`ToolCallingLanguageModelProtocol` 也是结构化协议，但它是 `LanguageModelProtocol` 的增强能力：除普通语言模型方法外，还必须实现 `invoke_with_tools`。普通 `LanguageModel` 不满足该协议；需要 native tool calling 时应显式使用 `ToolCallingLanguageModel` 或实现同等方法的自定义模型。
 
 ## Configuration
 
@@ -85,6 +92,24 @@ llm = LanguageModel(
 
 同一个 `LanguageModel` 实例可以在 recipe 中复用。批量处理 chunks、图文描述、实体抽取或关系抽取时，并发请求会被 `max_concurrent_requests` 控制。
 
+`ToolCallingLanguageModel` 接受同样的基础配置，并额外提供 `validate_function_calling_support`：
+
+```python
+from heta_framework.common.models import ToolCallingLanguageModel
+
+tool_llm = ToolCallingLanguageModel(
+    model_name="openai/gpt-4o-mini",
+    api_key="...",
+    validate_function_calling_support=True,
+)
+```
+
+| 参数 | 说明 |
+| --- | --- |
+| `validate_function_calling_support` | 是否在发送带 tools 的请求前调用 LiteLLM `supports_function_calling(model=...)` 做能力检查。默认开启。 |
+
+LiteLLM 文档建议用 `supports_function_calling(model=...)` 判断模型是否支持 function calling；`ToolCallingLanguageModel` 默认遵循这个检查。自定义 provider 或 LiteLLM 尚未登记能力的模型，可以设置 `validate_function_calling_support=False`，由调用方自行保证兼容性。
+
 ## Calling The Model
 
 ```python
@@ -102,6 +127,18 @@ async for chunk in llm.stream(request):
 | `stream` | 执行一次流式请求，返回 `AsyncIterator[ModelChunk]`。 |
 
 `stream` 当前不支持 `response_schema`。需要结构化输出时使用 `invoke`。
+
+`ToolCallingLanguageModel` 额外提供：
+
+```python
+result = await tool_llm.invoke_with_tools(tool_request)
+```
+
+| 方法 | 说明 |
+| --- | --- |
+| `invoke_with_tools` | 执行一次 OpenAI-compatible native tool-calling 请求，返回 `ToolCallingModelResult`。 |
+
+`invoke_with_tools` 是非流式接口。agentic query engine 应在收到 `ToolCall` 后执行对应工具，再把工具结果作为 `role="tool"` 的 `ToolMessage` 追加到下一轮请求。
 
 ## Request Format
 
@@ -179,6 +216,112 @@ async def describe_image(file: UploadFile):
 
 `ModelOptions.provider_options` 会覆盖 `LanguageModel.provider_options` 中的同名字段，适合在单次请求中调整服务方专有参数。
 
+## Tool Calling
+
+Tool calling 使用单独的 `ToolCallingLanguageModel`，避免把普通语言模型都标记为 tool-capable。它复用 `LanguageModel` 的配置、并发限制、普通 `invoke`/`stream` 能力，但只有这个显式类会满足 `ToolCallingLanguageModelProtocol`。
+
+```python
+from heta_framework.common.models import (
+    ToolCallingLanguageModel,
+    ToolCallingModelRequest,
+    ToolDefinition,
+    ToolMessage,
+)
+
+tool_llm = ToolCallingLanguageModel(
+    model_name="openai/gpt-4o-mini",
+    api_key="...",
+)
+
+request = ToolCallingModelRequest(
+    messages=(
+        ToolMessage(role="system", content="Use tools when they help."),
+        ToolMessage(role="user", content="Find pages about Heta query engines."),
+    ),
+    tools=(
+        ToolDefinition(
+            name="search_wiki",
+            description="Search wiki pages by query.",
+            parameters_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+        ),
+    ),
+    tool_choice="auto",
+    trace_context={"stage": "agentic_query"},
+)
+
+result = await tool_llm.invoke_with_tools(request)
+tool_calls = result.message.tool_calls
+```
+
+当模型请求工具调用后，执行工具，并把工具输出写回下一轮对话：
+
+```python
+messages = [*request.messages, result.message]
+
+for call in result.message.tool_calls:
+    tool_output = run_tool(call.name, call.arguments)
+    messages.append(
+        ToolMessage(
+            role="tool",
+            content=tool_output,
+            tool_call_id=call.id,
+        )
+    )
+
+final = await tool_llm.invoke_with_tools(
+    ToolCallingModelRequest(
+        messages=tuple(messages),
+        tools=request.tools,
+        tool_choice="auto",
+    )
+)
+```
+
+### Tool Objects
+
+| 对象 | 说明 |
+| --- | --- |
+| `ToolDefinition` | 暴露给模型的工具 schema。Heta 会转换为 LiteLLM/OpenAI-compatible 的 `{"type": "function", "function": ...}` 格式。 |
+| `ToolMessage` | tool-calling 对话消息。`role="tool"` 时必须提供 `tool_call_id` 和 `content`。 |
+| `ToolCall` | 模型返回的工具调用请求，包含 `id`、工具名和 JSON 参数。 |
+| `ToolCallingModelRequest` | 一轮带工具列表和 tool choice 的模型请求。 |
+| `ToolCallingModelResult` | 模型返回的 assistant message、结束原因、token usage 和原始响应。 |
+
+`tool_choice` 支持：
+
+| 值 | 说明 |
+| --- | --- |
+| `"auto"` | 让模型自行决定回答或调用工具。 |
+| `"none"` | 禁止模型调用工具。 |
+| `"required"` | 要求模型调用某个可用工具。 |
+| 工具名字符串 | 强制调用指定工具，Heta 会转换为 LiteLLM 支持的 function tool choice 对象。 |
+
+### LiteLLM Compatibility
+
+`ToolCallingLanguageModel` 使用 LiteLLM 的 Chat Completion 参数：`messages`、`tools`、`tool_choice`。LiteLLM 会把这些 OpenAI-compatible 参数翻译到具体 provider。参考 LiteLLM 文档：
+
+- [Function Calling](https://docs.litellm.ai/docs/completion/function_call)
+- [Input Params](https://docs.litellm.ai/docs/completion/input)
+
+默认情况下，如果请求包含 tools，`ToolCallingLanguageModel` 会先调用 `litellm.supports_function_calling(model=...)`。如果 LiteLLM 判断模型不支持 function calling，会抛出 `ModelRequestError`，避免 agentic query 在不支持工具调用的模型上隐式失败。
+
+如果你使用私有 OpenAI-compatible endpoint，且确认该模型支持 tools 但 LiteLLM 还无法识别，可以关闭检查：
+
+```python
+tool_llm = ToolCallingLanguageModel(
+    model_name="openai/custom-tool-model",
+    api_base="https://example.com/v1",
+    api_key="...",
+    validate_function_calling_support=False,
+)
+```
+
+关闭检查只跳过 LiteLLM 的能力判定，不会改变请求格式；provider 仍需实际支持 `tools` 和 `tool_choice`。
+
 ## Result
 
 ```python
@@ -215,6 +358,11 @@ result.raw_response
 
 错误对象会保留 `trace_context`，方便定位失败发生在哪个任务阶段、文档或 chunk。
 
+Tool calling 也使用同一组模型错误：
+
+- `ModelRequestError`：LiteLLM 请求失败、当前模型不支持 function calling，或 support check 无法完成。
+- `ModelResponseError`：响应缺少 assistant message、tool call 参数不是 JSON object，或 tool-calling 响应结构无法解析。
+
 ## Scope
 
 Models 层负责：
@@ -226,6 +374,7 @@ Models 层负责：
 - 结构化 JSON 解析。
 - token usage、原始响应和追踪上下文保留。
 - 向 LiteLLM 透传模型服务专有参数。
+- native tool-calling 请求、响应解析和能力检查。
 
 Models 不负责文档解析、chunk 切分、prompt 业务内容、向量入库、图谱构建或 `KnowledgeBase` 生命周期管理。
 

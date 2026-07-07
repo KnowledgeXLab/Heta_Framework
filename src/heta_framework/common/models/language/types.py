@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from os import PathLike
-from typing import Any
+from typing import Any, Literal, TypeAlias
 
 
 @dataclass(frozen=True)
@@ -176,3 +177,141 @@ class ModelChunk:
     token_usage: TokenUsage | None = None
     trace_context: dict[str, Any] | None = None
     raw_chunk: dict[str, Any] | None = None
+
+
+ToolMessageRole: TypeAlias = Literal["system", "user", "assistant", "tool"]
+ToolChoice: TypeAlias = Literal["auto", "none", "required"] | str
+
+
+@dataclass(frozen=True)
+class ToolDefinition:
+    """Tool schema exposed to a tool-calling language model."""
+
+    name: str
+    description: str
+    parameters_schema: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.name.strip() == "":
+            raise ValueError("name must not be empty")
+        if self.description.strip() == "":
+            raise ValueError("description must not be empty")
+        object.__setattr__(self, "name", self.name.strip())
+        object.__setattr__(self, "description", self.description.strip())
+        object.__setattr__(self, "parameters_schema", dict(self.parameters_schema))
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """One tool call requested by a language model."""
+
+    id: str
+    name: str
+    arguments: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.id.strip() == "":
+            raise ValueError("id must not be empty")
+        if self.name.strip() == "":
+            raise ValueError("name must not be empty")
+        object.__setattr__(self, "id", self.id.strip())
+        object.__setattr__(self, "name", self.name.strip())
+        object.__setattr__(self, "arguments", dict(self.arguments))
+
+
+@dataclass(frozen=True)
+class ToolMessage:
+    """One chat message in a tool-calling model exchange."""
+
+    role: ToolMessageRole
+    content: str | None = None
+    tool_calls: tuple[ToolCall, ...] = ()
+    tool_call_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.role not in {"system", "user", "assistant", "tool"}:
+            raise ValueError("role must be one of: system, user, assistant, tool")
+        if self.content is not None and self.content.strip() == "":
+            raise ValueError("content must not be empty when provided")
+
+        if self.role == "tool":
+            if self.content is None:
+                raise ValueError("tool messages require content")
+            if self.tool_call_id is None or self.tool_call_id.strip() == "":
+                raise ValueError("tool messages require tool_call_id")
+            if self.tool_calls:
+                raise ValueError("tool messages must not include tool_calls")
+        elif self.tool_call_id is not None:
+            raise ValueError("tool_call_id is only valid for tool messages")
+
+        if self.role in {"system", "user"}:
+            if self.content is None:
+                raise ValueError(f"{self.role} messages require content")
+            if self.tool_calls:
+                raise ValueError(f"{self.role} messages must not include tool_calls")
+
+        if self.role == "assistant" and self.content is None and not self.tool_calls:
+            raise ValueError("assistant messages require content or tool_calls")
+
+        object.__setattr__(self, "content", self.content.strip() if self.content else None)
+        object.__setattr__(self, "tool_calls", tuple(self.tool_calls))
+        object.__setattr__(
+            self,
+            "tool_call_id",
+            self.tool_call_id.strip() if self.tool_call_id else None,
+        )
+
+
+@dataclass(frozen=True)
+class ToolCallingModelRequest:
+    """One tool-calling language model request."""
+
+    messages: tuple[ToolMessage, ...]
+    tools: tuple[ToolDefinition, ...] = ()
+    tool_choice: ToolChoice = "auto"
+    options: ModelOptions | None = None
+    response_schema: type | dict[str, Any] | None = None
+    trace_context: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if not self.messages:
+            raise ValueError("messages must not be empty")
+        if isinstance(self.tool_choice, str) and self.tool_choice.strip() == "":
+            raise ValueError("tool_choice must not be empty")
+        if self.tool_choice == "required" and not self.tools:
+            raise ValueError("tool_choice='required' requires at least one tool")
+
+        tool_names = [tool.name for tool in self.tools]
+        if len(tool_names) != len(set(tool_names)):
+            raise ValueError("tools must not contain duplicate names")
+
+        object.__setattr__(self, "messages", tuple(self.messages))
+        object.__setattr__(self, "tools", tuple(self.tools))
+        object.__setattr__(self, "tool_choice", self.tool_choice.strip())
+        object.__setattr__(
+            self,
+            "trace_context",
+            dict(self.trace_context) if self.trace_context is not None else None,
+        )
+
+
+@dataclass(frozen=True)
+class ToolCallingModelResult:
+    """Final result from one tool-calling language model request."""
+
+    message: ToolMessage
+    model_name: str = ""
+    token_usage: TokenUsage | None = None
+    finish_reason: str | None = None
+    trace_context: dict[str, Any] | None = None
+    raw_response: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if self.message.role != "assistant":
+            raise ValueError("tool-calling model results must contain an assistant message")
+        object.__setattr__(self, "model_name", self.model_name.strip())
+        object.__setattr__(
+            self,
+            "trace_context",
+            dict(self.trace_context) if self.trace_context is not None else None,
+        )

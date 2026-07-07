@@ -24,12 +24,21 @@ from heta_framework.common.models.language import (
     ModelResponseError,
     ModelResult,
     TextPart,
+    ToolCall,
+    ToolCallingLanguageModel,
+    ToolCallingModelRequest,
+    ToolCallingModelResult,
+    ToolChoice,
+    ToolDefinition,
+    ToolMessage,
+    ToolMessageRole,
     TokenUsage,
 )
 from heta_framework.common.models.protocols import (
     EmbeddingModelProtocol,
     LanguageModelProtocol,
     RerankModelProtocol,
+    ToolCallingLanguageModelProtocol,
 )
 from heta_framework.common.models.rerankers import (
     RerankConfig,
@@ -77,5 +86,14 @@ __all__ = [
     "RerankResponseError",
     "RerankResult",
     "TextPart",
+    "ToolCall",
+    "ToolCallingLanguageModel",
+    "ToolCallingLanguageModelProtocol",
+    "ToolCallingModelRequest",
+    "ToolCallingModelResult",
+    "ToolChoice",
+    "ToolDefinition",
+    "ToolMessage",
+    "ToolMessageRole",
     "TokenUsage",
 ]

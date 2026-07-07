@@ -7,6 +7,7 @@ from heta_framework.common.models.language.errors import (
     ModelResponseError,
 )
 from heta_framework.common.models.language.model import LanguageModel
+from heta_framework.common.models.language.tool_calling import ToolCallingLanguageModel
 from heta_framework.common.models.language.types import (
     ContentPart,
     ImagePart,
@@ -15,6 +16,13 @@ from heta_framework.common.models.language.types import (
     ModelRequest,
     ModelResult,
     TextPart,
+    ToolCall,
+    ToolCallingModelRequest,
+    ToolCallingModelResult,
+    ToolChoice,
+    ToolDefinition,
+    ToolMessage,
+    ToolMessageRole,
     TokenUsage,
 )
 
@@ -31,5 +39,13 @@ __all__ = [
     "ModelResponseError",
     "ModelResult",
     "TextPart",
+    "ToolCall",
+    "ToolCallingLanguageModel",
+    "ToolCallingModelRequest",
+    "ToolCallingModelResult",
+    "ToolChoice",
+    "ToolDefinition",
+    "ToolMessage",
+    "ToolMessageRole",
     "TokenUsage",
 ]
