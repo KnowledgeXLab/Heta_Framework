@@ -6,7 +6,13 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Protocol, runtime_checkable
 
 from heta_framework.common.models.embeddings.types import EmbeddingRequest, EmbeddingResult
-from heta_framework.common.models.language.types import ModelChunk, ModelRequest, ModelResult
+from heta_framework.common.models.language.types import (
+    ModelChunk,
+    ModelRequest,
+    ModelResult,
+    ToolCallingModelRequest,
+    ToolCallingModelResult,
+)
 from heta_framework.common.models.rerankers.types import RerankRequest, RerankResult
 
 
@@ -29,6 +35,18 @@ class LanguageModelProtocol(Protocol):
 
     def stream(self, request: ModelRequest) -> AsyncIterator[ModelChunk]:
         """Stream one language model request as text deltas."""
+        ...
+
+
+@runtime_checkable
+class ToolCallingLanguageModelProtocol(LanguageModelProtocol, Protocol):
+    """Optional language model capability for native tool-calling exchanges."""
+
+    async def invoke_with_tools(
+        self,
+        request: ToolCallingModelRequest,
+    ) -> ToolCallingModelResult:
+        """Run one tool-calling model request."""
         ...
 
 
