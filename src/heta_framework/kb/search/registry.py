@@ -25,6 +25,8 @@ class QueryEngineRegistry:
         """Return the built-in query engine registry."""
         from heta_framework.kb.search.engines import (
             FullTextSearchEngine,
+            GraphRAGGlobalQueryEngine,
+            GraphRAGLocalQueryEngine,
             HetaGraphSearchEngine,
             HybridSearchEngine,
             MultiHopSearchEngine,
@@ -40,6 +42,8 @@ class QueryEngineRegistry:
                 SqlTextSearchEngine(),
                 FullTextSearchEngine(),
                 HetaGraphSearchEngine(),
+                GraphRAGLocalQueryEngine(),
+                GraphRAGGlobalQueryEngine(),
                 HybridSearchEngine(),
                 RerankSearchEngine(),
                 RewriteSearchEngine(),

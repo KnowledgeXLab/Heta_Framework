@@ -7,3 +7,11 @@ build/
 *.egg-info/
 site/
 design/
+heta-demo-vector
+book.txt
+quick.py
+AGENTS.md
+uv.lock
+GRAPHRAG_REFACTOR_SUMMARY.md
+simple.py
+scripts

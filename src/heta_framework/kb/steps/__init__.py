@@ -7,6 +7,13 @@ from heta_framework.kb.steps.build_graph import (
     GraphTableNames,
     GraphVectorCollections,
 )
+from heta_framework.kb.steps.build_rag_graph import (
+    BuildRAGGraph,
+    BuildRAGGraphConfig,
+    BuildRAGGraphResult,
+    RAGGraphTableNames,
+    RAGGraphVectorCollections,
+)
 from heta_framework.kb.steps.embed import EmbedChunks, EmbedChunksConfig, EmbedChunksResult
 from heta_framework.kb.steps.deduplicate_entities import (
     DeduplicateEntities,
@@ -73,15 +80,32 @@ from heta_framework.kb.steps.types import (
     store_ref,
 )
 from heta_framework.kb.cleanup import StepCleanupPlan
+from heta_framework.kb.steps.extract_graph import (
+    ExtractGraph,
+    ExtractGraphConfig,
+    ExtractGraphResult
+)
+from heta_framework.kb.steps.graph_community import (
+    CommunityReport,
+    GraphCommunity,
+    GraphCommunityConfig,
+    GraphCommunityResult,
+)
 
 __all__ = [
     "BuildGraph",
     "BuildGraphConfig",
     "BuildGraphResult",
+    "BuildRAGGraph",
+    "BuildRAGGraphConfig",
+    "BuildRAGGraphResult",
     "ChunkTableNames",
     "ChunkVectorCollections",
     "GraphTableNames",
     "GraphVectorCollections",
+    "RAGGraphTableNames",
+    "RAGGraphVectorCollections",
+    "CommunityReport",
     "FullTextIndexNames",
     "ComponentRef",
     "DeduplicateEntities",
@@ -96,6 +120,12 @@ __all__ = [
     "EmbedChunks",
     "EmbedChunksConfig",
     "EmbedChunksResult",
+    "ExtractGraph",
+    "ExtractGraphConfig",
+    "ExtractGraphResult",
+    "GraphCommunity",
+    "GraphCommunityConfig",
+    "GraphCommunityResult",
     "ExtractEntities",
     "ExtractEntitiesConfig",
     "ExtractEntitiesResult",

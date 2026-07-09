@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from heta_framework.common.stores.graph.types import GraphEdge, GraphNode
 
@@ -46,4 +46,17 @@ class GraphStoreProtocol(Protocol):
 
     async def aclose(self) -> None:
         """Release resources held by the store."""
+        ...
+
+
+@runtime_checkable
+class ClusterableGraphStoreProtocol(GraphStoreProtocol, Protocol):
+    """Graph store protocol for stores that can produce community schemas."""
+
+    async def clustering(self, algorithm: str) -> None:
+        """Run graph clustering and persist cluster metadata in the store."""
+        ...
+
+    async def community_schema(self) -> dict[str, Any]:
+        """Return community schema generated from prior clustering."""
         ...
