@@ -14,6 +14,13 @@ from heta_framework.kb.steps.build_rag_graph import (
     RAGGraphTableNames,
     RAGGraphVectorCollections,
 )
+from heta_framework.kb.steps.build_lightrag_graph import (
+    BuildLightRAGGraph,
+    BuildLightRAGGraphConfig,
+    BuildLightRAGGraphResult,
+    LightRAGTableNames,
+    LightRAGVectorCollections,
+)
 from heta_framework.kb.steps.embed import EmbedChunks, EmbedChunksConfig, EmbedChunksResult
 from heta_framework.kb.steps.deduplicate_entities import (
     DeduplicateEntities,
@@ -85,6 +92,11 @@ from heta_framework.kb.steps.extract_graph import (
     ExtractGraphConfig,
     ExtractGraphResult
 )
+from heta_framework.kb.steps.extract_lightrag_graph import (
+    ExtractLightRAGGraph,
+    ExtractLightRAGGraphConfig,
+    ExtractLightRAGGraphResult,
+)
 from heta_framework.kb.steps.graph_community import (
     CommunityReport,
     GraphCommunity,
@@ -99,10 +111,15 @@ __all__ = [
     "BuildRAGGraph",
     "BuildRAGGraphConfig",
     "BuildRAGGraphResult",
+    "BuildLightRAGGraph",
+    "BuildLightRAGGraphConfig",
+    "BuildLightRAGGraphResult",
     "ChunkTableNames",
     "ChunkVectorCollections",
     "GraphTableNames",
     "GraphVectorCollections",
+    "LightRAGTableNames",
+    "LightRAGVectorCollections",
     "RAGGraphTableNames",
     "RAGGraphVectorCollections",
     "CommunityReport",
@@ -123,6 +140,9 @@ __all__ = [
     "ExtractGraph",
     "ExtractGraphConfig",
     "ExtractGraphResult",
+    "ExtractLightRAGGraph",
+    "ExtractLightRAGGraphConfig",
+    "ExtractLightRAGGraphResult",
     "GraphCommunity",
     "GraphCommunityConfig",
     "GraphCommunityResult",

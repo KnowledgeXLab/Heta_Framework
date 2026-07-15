@@ -6,14 +6,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from heta_framework.kb.procedures import (  # noqa: E402
     HetaGraphProcedure,
     KnowledgeProcedureProtocol,
+    LightRAGProcedure,
 )
+from heta_framework.kb.search import QueryEngineRegistry  # noqa: E402
 from heta_framework.kb.steps import (  # noqa: E402
+    BuildLightRAGGraph,
     BuildGraph,
     DeduplicateEntities,
     DeduplicateRelations,
+    ExtractLightRAGGraph,
     ExtractEntities,
     ExtractRelations,
     GraphTableNames,
+    LightRAGTableNames,
     MergeGraphIntoStore,
 )
 
@@ -81,3 +86,43 @@ def test_heta_graph_merge_procedure_uses_merge_graph_into_store():
     ]
     assert steps[-1].config.entity_keys_artifact == "deduplicated_entity_keys"
     assert steps[-1].config.relation_keys_artifact == "deduplicated_relation_keys"
+
+
+def test_lightrag_procedure_expands_to_extract_and_build_steps():
+    procedure = LightRAGProcedure(
+        extraction_format="tuple",
+        chunk_keys_artifact="custom_chunk_keys",
+        table_names=LightRAGTableNames(
+            entities="lr_entities",
+            relations="lr_relations",
+            chunks="lr_chunks",
+        ),
+        object_store="main",
+        graph_store="graph",
+        sql_store="sqlite",
+        vector_store="vectors",
+        language_model="reasoner",
+        embedding_model="embedder",
+    )
+
+    steps = procedure.steps()
+
+    assert isinstance(procedure, KnowledgeProcedureProtocol)
+    assert procedure.name == "lightrag"
+    assert [type(step) for step in steps] == [ExtractLightRAGGraph, BuildLightRAGGraph]
+    assert steps[0].config.extraction_format == "tuple"
+    assert steps[0].config.chunk_keys_artifact == "custom_chunk_keys"
+    assert steps[0].config.graph_store == "graph"
+    assert steps[1].config.graph_node_keys_artifact == "light_rag_graph_node_keys"
+    assert steps[1].config.table_names.entities == "lr_entities"
+    assert steps[1].config.sql_store == "sqlite"
+    assert steps[1].config.vector_store == "vectors"
+
+
+def test_lightrag_query_modes_registered_by_default_registry():
+    modes = QueryEngineRegistry.defaults().modes
+
+    assert "light_rag_local_query" in modes
+    assert "light_rag_global_query" in modes
+    assert "light_rag_hybrid_query" in modes
+    assert "light_rag_mix_query" in modes
