@@ -213,10 +213,16 @@ class GraphRAGGlobalQueryEngine:
             points,
             max_chars=_global_points_budget(request),
         )
+        global_chunk_rows = await _global_chunk_rows(
+            sql_store,
+            tables.chunks,
+            communities,
+        )
         results = _global_query_results(
             points_context=points_context,
             communities=communities,
             points=points,
+            chunk_rows=global_chunk_rows,
         )
         answer, answer_metadata = await _reduce_global_answer(
             context=context,
@@ -622,7 +628,12 @@ def _query_results(
             text=context_text,
             score=score,
             kind="graph_rag_context",
-            source=chunk_source(chunk_ids=chunk_ids, evidence_count=len(chunk_ids)),
+            source=chunk_source(
+                document_ids=_ordered_chunk_values(chunk_rows, "document_id"),
+                object_keys=_ordered_chunk_values(chunk_rows, "source_key"),
+                chunk_ids=chunk_ids,
+                evidence_count=len(chunk_ids),
+            ),
             metadata={
                 "entity_ids": [str(row["entity_id"]) for row in entities],
                 "relation_ids": [str(row["relation_id"]) for row in relations],
@@ -630,6 +641,27 @@ def _query_results(
                 "source_ids": [str(row["id"]) for row in chunk_rows],
             },
         ),
+    )
+
+
+async def _global_chunk_rows(
+    sql_store: SQLStoreProtocol,
+    table: str,
+    communities: list[dict[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    chunk_ids = tuple(
+        dict.fromkeys(
+            str(chunk_id)
+            for community in communities
+            for chunk_id in community.get("chunk_ids_list", ())
+            if str(chunk_id).strip()
+        )
+    )
+    chunk_datas = await _chunk_rows_by_ids(sql_store, table, list(chunk_ids))
+    return tuple(
+        {"id": chunk_id, **chunk_datas[chunk_id]}
+        for chunk_id in chunk_ids
+        if chunk_id in chunk_datas
     )
 
 
@@ -852,6 +884,7 @@ def _global_query_results(
     points_context: str,
     communities: list[dict[str, Any]],
     points: list[dict[str, Any]],
+    chunk_rows: tuple[dict[str, Any], ...],
 ) -> tuple[QueryResult, ...]:
     if not points_context.strip():
         points_context = "No relevant community support points were retrieved."
@@ -869,13 +902,29 @@ def _global_query_results(
             text=points_context,
             score=float(points[0]["score"]) if points else None,
             kind="graph_rag_global_context",
-            source=chunk_source(chunk_ids=chunk_ids, evidence_count=len(chunk_ids)),
+            source=chunk_source(
+                document_ids=_ordered_chunk_values(chunk_rows, "document_id"),
+                object_keys=_ordered_chunk_values(chunk_rows, "source_key"),
+                chunk_ids=chunk_ids,
+                evidence_count=len(chunk_ids),
+            ),
             metadata={
                 "community_ids": [str(row["community_id"]) for row in communities],
                 "support_point_count": len(points),
             },
         ),
     )
+
+
+def _ordered_chunk_values(chunk_rows: tuple[dict[str, Any], ...], key: str) -> tuple[str, ...]:
+    values: list[str] = []
+    seen: set[str] = set()
+    for row in chunk_rows:
+        value = str(row.get(key) or row.get("metadata", {}).get(key) or "").strip()
+        if value and value not in seen:
+            values.append(value)
+            seen.add(value)
+    return tuple(values)
 
 
 def _tables(asset: SearchAsset) -> _TableNames:

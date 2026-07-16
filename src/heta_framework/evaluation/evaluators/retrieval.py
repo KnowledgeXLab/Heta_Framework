@@ -206,23 +206,54 @@ def _ranked_document_ids(results: tuple[QueryResult, ...], *, k: int) -> tuple[s
     document_ids: list[str] = []
     seen: set[str] = set()
     for result in results:
-        document_id = _beir_document_id(result)
-        if document_id is None or document_id in seen:
-            continue
-        seen.add(document_id)
-        document_ids.append(document_id)
-        if len(document_ids) >= k:
-            break
+        for document_id in _beir_document_ids(result):
+            if document_id in seen:
+                continue
+            seen.add(document_id)
+            document_ids.append(document_id)
+            if len(document_ids) >= k:
+                return tuple(document_ids)
     return tuple(document_ids)
 
 
 def _beir_document_id(result: QueryResult) -> str | None:
+    document_ids = _beir_document_ids(result)
+    return document_ids[0] if document_ids else None
+
+
+def _beir_document_ids(result: QueryResult) -> tuple[str, ...]:
     source = dict(result.source)
+    document_ids: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: object | None) -> None:
+        if value is None:
+            return
+        text = str(value).strip()
+        if text and text not in seen:
+            document_ids.append(text)
+            seen.add(text)
+
     for key in ("beir_document_id", "benchmark_document_id"):
         value = source.get(key) or result.metadata.get(key)
         if value is not None and str(value).strip():
-            return str(value).strip()
-    source_key = source.get("source_key") or source.get("object_key")
+            add(value)
+    for key in ("beir_document_ids", "benchmark_document_ids"):
+        for value in _as_sequence(source.get(key) or result.metadata.get(key)):
+            add(value)
+    for key in ("source_key", "object_key"):
+        parsed = _beir_document_id_from_source_key(source.get(key))
+        if parsed is not None:
+            add(parsed)
+    for key in ("source_keys", "object_keys"):
+        for value in _as_sequence(source.get(key)):
+            parsed = _beir_document_id_from_source_key(value)
+            if parsed is not None:
+                add(parsed)
+    return tuple(document_ids)
+
+
+def _beir_document_id_from_source_key(source_key: object | None) -> str | None:
     if source_key is None:
         return None
     parts = [part for part in str(source_key).split("/") if part]
@@ -235,6 +266,14 @@ def _beir_document_id(result: QueryResult) -> str | None:
     if len(parts) >= 5 and parts[0] == "raw" and parts[1] == "benchmarks":
         return parts[4]
     return None
+
+
+def _as_sequence(value: object | None) -> tuple[object, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return tuple(value)
+    return (value,)
 
 
 def _score_beir_metric(

@@ -274,7 +274,7 @@ GRAPH_RAG_ENTITY_CONTINUE_EXTRACTION_PROMPT="""MANY entities were missed in the 
 """
 GRAPH_RAG_ENTITY_IF_LOOP_EXTRACTION_PROMPT= """It appears some entities may have still been missed.  Answer YES | NO if there are still entities that need to be added.
 """
-GRAPH_RAG_COMMUNITY_REPORT_PROMPT = """"You are an AI assistant that helps a human analyst to perform general information discovery. 
+GRAPH_RAG_COMMUNITY_REPORT_PROMPT = """You are an AI assistant that helps a human analyst to perform general information discovery. 
 Information discovery is the process of identifying and assessing relevant information associated with certain entities (e.g., organizations and individuals) within a network.
 
 # Goal

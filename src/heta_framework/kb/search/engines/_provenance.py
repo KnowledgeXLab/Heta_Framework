@@ -10,7 +10,9 @@ from heta_framework.kb.search.types import QueryCitation, QueryResult
 def chunk_source(
     *,
     document_id: object | None = None,
+    document_ids: Iterable[object] = (),
     object_key: object | None = None,
+    object_keys: Iterable[object] = (),
     object_name: object | None = None,
     object_type: object | None = None,
     chunk_ids: Iterable[object] = (),
@@ -23,7 +25,14 @@ def chunk_source(
     """Return the canonical source shape used by built-in query engines."""
     source: dict[str, Any] = {}
     _set_if_present(source, "document_id", document_id)
+    doc_ids = tuple(str(item) for item in document_ids if item is not None and str(item).strip())
+    if doc_ids:
+        source["document_ids"] = doc_ids
     _set_if_present(source, "object_key", object_key)
+    keys = tuple(str(item) for item in object_keys if item is not None and str(item).strip())
+    if keys:
+        source["object_keys"] = keys
+        source["source_keys"] = keys
     _set_if_present(source, "object_name", object_name)
     _set_if_present(source, "object_type", object_type)
     ids = tuple(str(item) for item in chunk_ids if item is not None and str(item).strip())
