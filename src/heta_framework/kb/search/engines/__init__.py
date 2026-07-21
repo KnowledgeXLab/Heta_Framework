@@ -13,6 +13,14 @@ from heta_framework.kb.search.engines.light_rag import (
     LightRAGLocalQueryEngine,
     LightRAGMixQueryEngine,
 )
+from heta_framework.kb.search.engines.hi_rag import (
+    HiRAGBridgeQueryEngine,
+    HiRAGFullQueryEngine,
+    HiRAGGlobalQueryEngine,
+    HiRAGLocalQueryEngine,
+    HiRAGNobridgeQueryEngine,
+    HiRAGQueryEngine,
+)
 from heta_framework.kb.search.engines.keyword import SqlTextSearchEngine
 from heta_framework.kb.search.engines.multi_hop import MultiHopSearchEngine
 from heta_framework.kb.search.engines.rerank import RerankSearchEngine
@@ -29,6 +37,12 @@ __all__ = [
     "LightRAGHybridQueryEngine",
     "LightRAGLocalQueryEngine",
     "LightRAGMixQueryEngine",
+    "HiRAGBridgeQueryEngine",
+    "HiRAGFullQueryEngine",
+    "HiRAGGlobalQueryEngine",
+    "HiRAGLocalQueryEngine",
+    "HiRAGNobridgeQueryEngine",
+    "HiRAGQueryEngine",
     "MultiHopSearchEngine",
     "RerankSearchEngine",
     "RewriteSearchEngine",

@@ -4,6 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from heta_framework.kb.procedures import (  # noqa: E402
+    HiRAGProcedure,
     HetaGraphProcedure,
     KnowledgeProcedureProtocol,
     LightRAGProcedure,
@@ -11,15 +12,20 @@ from heta_framework.kb.procedures import (  # noqa: E402
 from heta_framework.kb.search import QueryEngineRegistry  # noqa: E402
 from heta_framework.kb.steps import (  # noqa: E402
     BuildLightRAGGraph,
+    BuildHiRAGGraph,
     BuildGraph,
     DeduplicateEntities,
     DeduplicateRelations,
     ExtractLightRAGGraph,
+    ExtractHiRAGGraph,
     ExtractEntities,
     ExtractRelations,
     GraphTableNames,
     LightRAGTableNames,
+    HiRAGTableNames,
     MergeGraphIntoStore,
+    ParseDocuments,
+    SplitDocuments,
 )
 
 
@@ -126,3 +132,60 @@ def test_lightrag_query_modes_registered_by_default_registry():
     assert "light_rag_global_query" in modes
     assert "light_rag_hybrid_query" in modes
     assert "light_rag_mix_query" in modes
+
+
+def test_hirag_procedure_expands_to_parse_split_extract_and_build_steps():
+    procedure = HiRAGProcedure(
+        chunk_token_size=256,
+        chunk_overlap_token_size=32,
+        table_names=HiRAGTableNames(
+            entities="hi_entities",
+            relations="hi_relations",
+            communities="hi_communities",
+            chunks="hi_chunks",
+        ),
+        object_store="main",
+        graph_store="graph",
+        sql_store="sqlite",
+        vector_store="vectors",
+        language_model="reasoner",
+        embedding_model="embedder",
+        max_graph_cluster_size=7,
+        graph_cluster_seed=123,
+    )
+
+    steps = procedure.steps()
+
+    assert isinstance(procedure, KnowledgeProcedureProtocol)
+    assert procedure.name == "hirag"
+    assert [type(step) for step in steps] == [
+        ParseDocuments,
+        SplitDocuments,
+        ExtractHiRAGGraph,
+        BuildHiRAGGraph,
+    ]
+    assert steps[1].config.chunk_size == 256
+    assert steps[1].config.overlap == 32
+    assert steps[2].config.graph_store == "graph"
+    assert steps[3].config.table_names.entities == "hi_entities"
+    assert steps[3].config.graph_cluster_algorithm == "leiden"
+    assert steps[3].config.max_graph_cluster_size == 7
+    assert steps[3].config.graph_cluster_seed == 123
+    assert steps[3].config.sql_store == "sqlite"
+    assert steps[3].config.vector_store == "vectors"
+
+
+def test_hirag_procedure_keeps_original_hierachical_typo_alias():
+    procedure = HiRAGProcedure(enable_hierarchical_mode=True, enable_hierachical_mode=False)
+
+    assert procedure.hierarchical_mode_enabled is False
+
+
+def test_hirag_query_modes_registered_by_default_registry():
+    modes = QueryEngineRegistry.defaults().modes
+
+    assert "hi_rag_query" in modes
+    assert "hi_rag_nobridge_query" in modes
+    assert "hi_rag_local_query" in modes
+    assert "hi_rag_global_query" in modes
+    assert "hi_rag_bridge_query" in modes
