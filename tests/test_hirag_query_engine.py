@@ -23,7 +23,14 @@ from heta_framework.kb.search.engines import (  # noqa: E402
     HiRAGNobridgeQueryEngine,
 )
 from heta_framework.kb.search.types import QueryRequest  # noqa: E402
-from heta_framework.kb.steps import BuildHiRAGGraph, BuildHiRAGGraphConfig, HiRAGTableNames, HiRAGVectorCollections  # noqa: E402
+from heta_framework.kb.steps import (  # noqa: E402
+    BuildHiRAGGraph,
+    BuildHiRAGGraphConfig,
+    HiRAGCommunity,
+    HiRAGCommunityConfig,
+    HiRAGTableNames,
+    HiRAGVectorCollections,
+)
 
 
 TEST_PROMPTS = {
@@ -227,6 +234,12 @@ async def _build_runtime(tmp_path):
     )
     step = BuildHiRAGGraph(config)
     await step.run(build_context)
+    await HiRAGCommunity(
+        HiRAGCommunityConfig(
+            table_names=config.table_names,
+            prompts=TEST_PROMPTS,
+        )
+    ).run(build_context)
     assets = SearchAssetCollection(step.capabilities.search_assets)
     recipe = FakeRecipe(
         {

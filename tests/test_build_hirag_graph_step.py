@@ -24,6 +24,8 @@ from heta_framework.common.stores import (  # noqa: E402
 from heta_framework.kb.steps import (  # noqa: E402
     BuildHiRAGGraph,
     BuildHiRAGGraphConfig,
+    HiRAGCommunity,
+    HiRAGCommunityConfig,
     HiRAGGraphIndexAdapter,
     HiRAGTableNames,
     HiRAGVectorCollections,
@@ -183,6 +185,18 @@ def _config():
     )
 
 
+def _community_config():
+    return HiRAGCommunityConfig(
+        table_names=HiRAGTableNames(
+            entities="test_hi_entities",
+            relations="test_hi_relations",
+            communities="test_hi_communities",
+            chunks="test_hi_chunks",
+        ),
+        prompts=TEST_PROMPTS,
+    )
+
+
 def test_build_hirag_graph_declares_capabilities():
     step = BuildHiRAGGraph()
 
@@ -193,11 +207,11 @@ def test_build_hirag_graph_declares_capabilities():
         "stores.sql",
         "stores.vector",
         "models.embedding",
-        "models.language",
     }
     assert step.requirements.artifacts == frozenset(
         {"hi_rag_graph_node_keys", "hi_rag_graph_edge_keys", "hi_rag_chunks"}
     )
+    assert "hi_rag_community_schema" in step.capabilities.artifacts
     assert "hi_rag_query" in step.capabilities.queries
     assert [asset.kind for asset in step.capabilities.search_assets] == [
         "hi_rag_tables",
@@ -205,7 +219,7 @@ def test_build_hirag_graph_declares_capabilities():
     ]
 
 
-def test_build_hirag_graph_writes_sql_vectors_graph_and_reports(tmp_path):
+def test_build_hirag_graph_writes_sql_vectors_graph_and_community_schema(tmp_path):
     object_store = LocalObjectStore(tmp_path)
     graph_store = InMemoryGraphStore()
     sql_store = SQLStore("sqlite:///:memory:")
@@ -233,9 +247,8 @@ def test_build_hirag_graph_writes_sql_vectors_graph_and_reports(tmp_path):
             "test_hi_entity_vectors",
             VectorQuery(vector=[20.0, 1.0, 1.0], top_k=1),
         )
-        report_key = context.artifacts["hi_rag_community_report_keys"][0]
-        report = json.loads((await object_store.get(report_key)).decode("utf-8"))
-        return entity_rows, relation_rows, community_rows, chunk_rows, vector_count, hits, report
+        community_schema = context.artifacts["hi_rag_community_schema"]
+        return entity_rows, relation_rows, community_rows, chunk_rows, vector_count, hits, community_schema
 
     (
         entity_rows,
@@ -244,12 +257,12 @@ def test_build_hirag_graph_writes_sql_vectors_graph_and_reports(tmp_path):
         chunk_rows,
         vector_count,
         hits,
-        report,
+        community_schema,
     ) = asyncio.run(run())
 
     assert len(entity_rows) == 3
     assert len(relation_rows) == 2
-    assert len(community_rows) == 1
+    assert len(community_rows) == 0
     assert len(chunk_rows) == 1
     assert vector_count == 3
     assert hits[0].metadata["fact_type"] == "hi_rag_entity"
@@ -257,10 +270,44 @@ def test_build_hirag_graph_writes_sql_vectors_graph_and_reports(tmp_path):
     assert "ALICE" in graph_store.nodes
     assert "ALICE--RELATED--BOB" in graph_store.edges
     assert "ALICE--RELATED--MISSING_ENTITY" not in graph_store.edges
-    assert report["report_json"]["title"] == "Alice Community"
+    assert community_schema[0]["community_id"] == "community_0"
     assert json.loads(entity_rows[0]["source_ids"]) == ["chunk_1"]
     assert chunk_rows[0]["source_key"] == "raw/alice.txt"
     assert chunk_rows[0]["document_id"] == "doc_1"
+
+
+def test_hirag_community_writes_reports_and_sql_rows(tmp_path):
+    object_store = LocalObjectStore(tmp_path)
+    graph_store = InMemoryGraphStore()
+    sql_store = SQLStore("sqlite:///:memory:")
+    vector_store = InMemoryVectorStore()
+    language_model = FakeLanguageModel()
+    context = FakeContext(
+        {
+            "stores.objects": object_store,
+            "stores.graph": graph_store,
+            "stores.sql": sql_store,
+            "stores.vector": vector_store,
+            "models.embedding": FakeEmbeddingModel(),
+            "models.language": language_model,
+        }
+    )
+
+    async def run():
+        await _put_inputs(object_store, context)
+        await BuildHiRAGGraph(_config()).run(context)
+        await HiRAGCommunity(_community_config()).run(context)
+        community_rows = await sql_store.fetch_all("SELECT * FROM test_hi_communities")
+        report_key = context.artifacts["hi_rag_community_report_keys"][0]
+        report = json.loads((await object_store.get(report_key)).decode("utf-8"))
+        return community_rows, report, language_model.requests[0].prompt
+
+    community_rows, report, prompt = asyncio.run(run())
+
+    assert len(community_rows) == 1
+    assert report["report_json"]["title"] == "Alice Community"
+    assert "-----Reports-----" in prompt
+    assert "ALICE" in prompt
 
 
 def test_build_hirag_graph_default_community_schema_uses_leiden(monkeypatch):

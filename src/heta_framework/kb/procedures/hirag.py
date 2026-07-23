@@ -9,6 +9,8 @@ from heta_framework.kb.steps import (
     BuildHiRAGGraphConfig,
     ExtractHiRAGGraph,
     ExtractHiRAGGraphConfig,
+    HiRAGCommunity,
+    HiRAGCommunityConfig,
     HiRAGTableNames,
     HiRAGVectorCollections,
     KnowledgeStepProtocol,
@@ -63,8 +65,12 @@ class HiRAGProcedure:
     graph_node_keys_artifact: str = "hi_rag_graph_node_keys"
     graph_edge_keys_artifact: str = "hi_rag_graph_edge_keys"
     chunks_artifact: str = "hi_rag_chunks"
+    community_schema_artifact: str = "hi_rag_community_schema"
+    community_reports_artifact: str = "hi_rag_community_reports"
+    community_report_keys_artifact: str = "hi_rag_community_report_keys"
     extract_result_artifact: str = "extract_hi_rag_graph_result"
     build_result_artifact: str = "build_hi_rag_graph_result"
+    community_result_artifact: str = "hi_rag_community_result"
 
     table_names: HiRAGTableNames = field(default_factory=HiRAGTableNames)
     vector_collections: HiRAGVectorCollections = field(default_factory=HiRAGVectorCollections)
@@ -139,6 +145,7 @@ class HiRAGProcedure:
                     graph_node_keys_artifact=self.graph_node_keys_artifact,
                     graph_edge_keys_artifact=self.graph_edge_keys_artifact,
                     chunks_artifact=self.chunks_artifact,
+                    community_schema_artifact=self.community_schema_artifact,
                     result_artifact=self.build_result_artifact,
                     vector_metric=self.vector_metric,
                     graph_cluster_algorithm=self.graph_cluster_algorithm,
@@ -152,6 +159,23 @@ class HiRAGProcedure:
                     vector_store=self.vector_store,
                     language_model=self.language_model,
                     embedding_model=self.embedding_model,
+                )
+            ),
+            HiRAGCommunity(
+                HiRAGCommunityConfig(
+                    table_names=self.table_names,
+                    graph_node_keys_artifact=self.graph_node_keys_artifact,
+                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                    community_schema_artifact=self.community_schema_artifact,
+                    community_reports_artifact=self.community_reports_artifact,
+                    community_report_keys_artifact=self.community_report_keys_artifact,
+                    result_artifact=self.community_result_artifact,
+                    report_context_max_tokens=self.max_token_for_community_report,
+                    batch_size=self.batch_size,
+                    temperature=self.temperature,
+                    object_store=self.object_store,
+                    sql_store=self.sql_store,
+                    language_model=self.language_model,
                 )
             ),
         )

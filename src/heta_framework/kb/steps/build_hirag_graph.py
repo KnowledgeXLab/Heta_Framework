@@ -1,24 +1,23 @@
-"""Build HiRAG SQL tables, vector indexes, graph store data, and community reports."""
+"""Build HiRAG SQL tables, vector indexes, graph store data, and community schema."""
 
 from __future__ import annotations
 
-import asyncio
 import html
 import json
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-from heta_framework.common.models import EmbeddingRequest, ModelOptions, ModelRequest
-from heta_framework.common.models.protocols import EmbeddingModelProtocol, LanguageModelProtocol
+from heta_framework.common.models import EmbeddingRequest
+from heta_framework.common.models.protocols import EmbeddingModelProtocol
 from heta_framework.common.stores.graph import GraphEdge, GraphNode, GraphStoreProtocol
 from heta_framework.common.stores.object import ObjectStoreProtocol
-from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
 from heta_framework.common.stores.sql import SQLStoreProtocol
 from heta_framework.common.stores.vector import VectorCollectionConfig, VectorRecord, VectorStoreProtocol
-from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan, object_key_targets
+from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
 from heta_framework.kb.search import SearchAsset
 from heta_framework.kb.steps.extract_hirag_graph import HIRAG_PROMPTS
+from heta_framework.kb.steps.community_report import CommunitySchema, community_schema_to_dict
 from heta_framework.kb.steps.graph_storage import batches, compact_json, validate_identifier
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, model_ref, store_ref
@@ -59,6 +58,7 @@ class BuildHiRAGGraphConfig:
     graph_node_keys_artifact: str = "hi_rag_graph_node_keys"
     graph_edge_keys_artifact: str = "hi_rag_graph_edge_keys"
     chunks_artifact: str = "hi_rag_chunks"
+    community_schema_artifact: str = "hi_rag_community_schema"
     community_reports_artifact: str = "hi_rag_community_reports"
     community_report_keys_artifact: str = "hi_rag_community_report_keys"
     result_artifact: str = "build_hi_rag_graph_result"
@@ -79,7 +79,6 @@ class BuildHiRAGGraphConfig:
     prompts: Mapping[str, Any] = field(default_factory=lambda: dict(HIRAG_PROMPTS))
 
     def __post_init__(self) -> None:
-        validate_object_prefix(self.community_reports_prefix)
         if self.vector_metric not in {"cosine", "dot", "l2"}:
             raise ValueError("vector_metric must be one of: cosine, dot, l2")
         if self.graph_cluster_algorithm not in {"leiden", "connected_components"}:
@@ -94,6 +93,7 @@ class BuildHiRAGGraphConfig:
             self.graph_node_keys_artifact,
             self.graph_edge_keys_artifact,
             self.chunks_artifact,
+            self.community_schema_artifact,
             self.community_reports_artifact,
             self.community_report_keys_artifact,
             self.result_artifact,
@@ -132,7 +132,6 @@ class BuildHiRAGGraph:
                     store_ref("sql", self.config.sql_store),
                     store_ref("vector", self.config.vector_store),
                     model_ref("embedding", self.config.embedding_model),
-                    model_ref("language", self.config.language_model),
                 }
             ),
             artifacts=frozenset(
@@ -152,8 +151,7 @@ class BuildHiRAGGraph:
             artifacts=frozenset(
                 {
                     self.config.result_artifact,
-                    self.config.community_reports_artifact,
-                    self.config.community_report_keys_artifact,
+                    self.config.community_schema_artifact,
                 }
             ),
             queries=frozenset(
@@ -197,13 +195,6 @@ class BuildHiRAGGraph:
                 CleanupTarget("sql_table", self.config.table_names.chunks, sql_store_ref),
                 CleanupTarget("vector_collection", self.config.vector_collections.entities, vector_store_ref),
             )
-            + tuple(
-                object_key_targets(
-                    artifacts,
-                    self.config.community_report_keys_artifact,
-                    component=store_ref("objects", self.config.object_store).key,
-                )
-            )
         )
 
     async def run(self, context: StepContextProtocol) -> None:
@@ -222,10 +213,6 @@ class BuildHiRAGGraph:
         embedding_model = _require_embedding_model(
             context.get_component(model_ref("embedding", self.config.embedding_model).key)
         )
-        language_model = _require_language_model(
-            context.get_component(model_ref("language", self.config.language_model).key)
-        )
-
         node_keys = tuple(context.get_artifact(self.config.graph_node_keys_artifact))
         edge_keys = tuple(context.get_artifact(self.config.graph_edge_keys_artifact))
         chunks = list(context.get_artifact(self.config.chunks_artifact))
@@ -234,22 +221,13 @@ class BuildHiRAGGraph:
         edges = _filter_edges_with_known_endpoints(nodes, edges)
 
         await _upsert_graph_store(graph_store, nodes, edges)
-        reports = await _generate_community_reports(
-            nodes,
-            edges,
-            language_model=language_model,
-            config=self.config,
-        )
-        report_keys = tuple(
-            [
-                await _put_community_report(object_store, self.config, report)
-                for report in reports
-            ]
+        community_schema = tuple(
+            community_schema_to_dict(_community_schema_dict_to_shared(schema))
+            for schema in _community_schema(nodes, edges, self.config)
         )
 
         node_rows = [_entity_row(node) for node in nodes]
         edge_rows = [_relation_row(edge) for edge in edges]
-        community_rows = [_community_row(report) for report in reports]
         chunk_rows = [_chunk_row(chunk) for chunk in chunks]
         vectors = await _embed_entities(
             embedding_model,
@@ -264,8 +242,6 @@ class BuildHiRAGGraph:
                 await _upsert_entity_rows(tx, self.config.table_names.entities, batch)
             for batch in batches(edge_rows, self.config.batch_size):
                 await _upsert_relation_rows(tx, self.config.table_names.relations, batch)
-            for batch in batches(community_rows, self.config.batch_size):
-                await _upsert_community_rows(tx, self.config.table_names.communities, batch)
             for batch in batches(chunk_rows, self.config.batch_size):
                 await _upsert_chunk_rows(tx, self.config.table_names.chunks, batch)
 
@@ -283,14 +259,13 @@ class BuildHiRAGGraph:
         result = BuildHiRAGGraphResult(
             entity_count=len(nodes),
             relation_count=len(edges),
-            community_count=len(reports),
+            community_count=len(community_schema),
             chunk_count=len(chunks),
             entity_vector_count=len(vectors),
             vector_dimension=vector_dimension,
         )
         context.set_artifact(self.config.result_artifact, result)
-        context.set_artifact(self.config.community_reports_artifact, reports)
-        context.set_artifact(self.config.community_report_keys_artifact, report_keys)
+        context.set_artifact(self.config.community_schema_artifact, community_schema)
 
 
 class HiRAGGraphIndexAdapter:
@@ -614,67 +589,6 @@ async def _upsert_graph_store(
     )
 
 
-async def _generate_community_reports(
-    nodes: list[dict[str, Any]],
-    edges: list[dict[str, Any]],
-    *,
-    language_model: LanguageModelProtocol,
-    config: BuildHiRAGGraphConfig,
-) -> list[dict[str, Any]]:
-    communities = _community_schema(nodes, edges, config)
-    return await asyncio.gather(
-        *(
-            _generate_single_community_report(
-                community,
-                nodes,
-                edges,
-                language_model=language_model,
-                config=config,
-            )
-            for community in communities
-        )
-    )
-
-
-async def _generate_single_community_report(
-    community: dict[str, Any],
-    nodes: list[dict[str, Any]],
-    edges: list[dict[str, Any]],
-    *,
-    language_model: LanguageModelProtocol,
-    config: BuildHiRAGGraphConfig,
-) -> dict[str, Any]:
-    prompt = str(
-        config.prompts["community_report"].format(
-            input_text=_community_context(community, nodes, edges)
-        )
-    )
-    result = await language_model.invoke(
-        ModelRequest(
-            prompt=prompt,
-            options=ModelOptions(
-                temperature=config.temperature,
-                max_output_tokens=config.report_max_output_tokens,
-                response_format={"type": "json_object"},
-            ),
-            trace_context={
-                "step": BuildHiRAGGraph.name,
-                "stage": "community_report",
-                "community_id": community["community_id"],
-            },
-        )
-    )
-    report_json = _parse_json_object(result.text)
-    if not report_json:
-        report_json = {"title": community["title"], "summary": result.text, "findings": []}
-    return {
-        **community,
-        "title": str(report_json.get("title") or community["title"]),
-        "report_json": report_json,
-        "report": _community_report_json_to_str(report_json),
-    }
-
-
 def _community_schema(
     nodes: list[dict[str, Any]],
     edges: list[dict[str, Any]],
@@ -683,6 +597,23 @@ def _community_schema(
     if config.graph_cluster_algorithm == "connected_components":
         return _connected_component_communities(nodes, edges)
     return _leiden_communities(nodes, edges, config)
+
+
+def _community_schema_dict_to_shared(community: Mapping[str, Any]) -> CommunitySchema:
+    return CommunitySchema(
+        community_id=str(community["community_id"]),
+        level=int(community["level"]),
+        title=str(community["title"]),
+        nodes=tuple(str(node) for node in community["nodes"]),
+        edges=tuple(
+            (str(edge[0]), str(edge[1]))
+            for edge in community["edges"]
+            if isinstance(edge, list | tuple) and len(edge) == 2
+        ),
+        chunk_ids=tuple(str(chunk_id) for chunk_id in community["chunk_ids"]),
+        occurrence=float(community["occurrence"]),
+        sub_communities=tuple(str(item) for item in community["sub_communities"]),
+    )
 
 
 def _leiden_communities(
@@ -910,101 +841,6 @@ def _filter_edges_with_known_endpoints(
     ]
 
 
-def _community_context(community: dict[str, Any], nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> str:
-    node_by_id = {str(node["id"]): node for node in nodes}
-    normalized_node_by_id = {_normalized_entity_id(node["id"]): node for node in nodes}
-    community_nodes = [
-        node
-        for node_id in community["nodes"]
-        if (node := node_by_id.get(str(node_id)) or normalized_node_by_id.get(_normalized_entity_id(node_id)))
-        is not None
-    ]
-    community_edge_keys = {
-        tuple(sorted((_normalized_entity_id(edge[0]), _normalized_entity_id(edge[1]))))
-        for edge in community["edges"]
-    }
-    community_edges = [
-        edge
-        for edge in edges
-        if tuple(sorted((_normalized_entity_id(edge["source_id"]), _normalized_entity_id(edge["target_id"]))))
-        in community_edge_keys
-    ]
-    node_lines = ["id,entity,type,description,degree"]
-    degrees = CounterLike.from_edges(community["edges"])
-    for index, node in enumerate(community_nodes):
-        properties = dict(node.get("properties") or {})
-        node_lines.append(
-            ",".join(
-                [
-                    str(index),
-                    _csv_cell(str(properties.get("name") or node["id"])),
-                    _csv_cell(str(properties.get("entity_type") or "UNKNOWN")),
-                    _csv_cell(str(properties.get("description") or "")),
-                    str(degrees.get(_normalized_entity_id(node["id"]), 0)),
-                ]
-            )
-        )
-    edge_lines = ["id,source,target,description,rank"]
-    for index, edge in enumerate(community_edges):
-        properties = dict(edge.get("properties") or {})
-        edge_lines.append(
-            ",".join(
-                [
-                    str(index),
-                    _csv_cell(str(edge["source_id"])),
-                    _csv_cell(str(edge["target_id"])),
-                    _csv_cell(str(properties.get("description") or "")),
-                    str(
-                        degrees.get(_normalized_entity_id(edge["source_id"]), 0)
-                        + degrees.get(_normalized_entity_id(edge["target_id"]), 0)
-                    ),
-                ]
-            )
-        )
-    return "-----Reports-----\n```csv\n\n```\n-----Entities-----\n```csv\n" + "\n".join(node_lines) + "\n```\n-----Relationships-----\n```csv\n" + "\n".join(edge_lines) + "\n```"
-
-
-class CounterLike(defaultdict[str, int]):
-    @classmethod
-    def from_edges(cls, edges: list[list[str]]) -> "CounterLike":
-        counter = cls(int)
-        for source, target in edges:
-            counter[_normalized_entity_id(source)] += 1
-            counter[_normalized_entity_id(target)] += 1
-        return counter
-
-
-def _community_report_json_to_str(report_json: dict[str, Any]) -> str:
-    title = report_json.get("title", "Report")
-    summary = report_json.get("summary", "")
-    findings = report_json.get("findings", [])
-    sections = []
-    for finding in findings:
-        if isinstance(finding, str):
-            sections.append(f"## {finding}\n")
-        elif isinstance(finding, dict):
-            sections.append(f"## {finding.get('summary', '')}\n\n{finding.get('explanation', '')}")
-    return f"# {title}\n\n{summary}\n\n" + "\n\n".join(sections)
-
-
-def _parse_json_object(text: str) -> dict[str, Any]:
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-async def _put_community_report(
-    object_store: ObjectStoreProtocol,
-    config: BuildHiRAGGraphConfig,
-    report: dict[str, Any],
-) -> str:
-    key = join_object_key(config.community_reports_prefix, f"{report['community_id']}.json")
-    await object_store.put(key, json.dumps(report, ensure_ascii=False, sort_keys=True).encode("utf-8"))
-    return key
-
-
 def _entity_row(node: dict[str, Any]) -> dict[str, object]:
     properties = dict(node.get("properties") or {})
     source_ids = _list_value(properties.get("source_ids"))
@@ -1095,12 +931,6 @@ def _list_value(value: Any) -> list[str]:
     return [str(value)]
 
 
-def _csv_cell(value: str) -> str:
-    if "," in value or "\n" in value or '"' in value:
-        return '"' + value.replace('"', '""') + '"'
-    return value
-
-
 def _require_object_store(component: object) -> ObjectStoreProtocol:
     if not isinstance(component, ObjectStoreProtocol):
         raise TypeError("stores.objects must satisfy ObjectStoreProtocol")
@@ -1128,10 +958,4 @@ def _require_vector_store(component: object) -> VectorStoreProtocol:
 def _require_embedding_model(component: object) -> EmbeddingModelProtocol:
     if not isinstance(component, EmbeddingModelProtocol):
         raise TypeError("models.embedding must satisfy EmbeddingModelProtocol")
-    return component
-
-
-def _require_language_model(component: object) -> LanguageModelProtocol:
-    if not isinstance(component, LanguageModelProtocol):
-        raise TypeError("models.language must satisfy LanguageModelProtocol")
     return component

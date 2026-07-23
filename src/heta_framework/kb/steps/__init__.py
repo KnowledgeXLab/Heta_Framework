@@ -116,6 +116,12 @@ from heta_framework.kb.steps.graph_community import (
     GraphCommunityConfig,
     GraphCommunityResult,
 )
+from heta_framework.kb.steps.community_report import CommunitySchema
+from heta_framework.kb.steps.hirag_community import (
+    HiRAGCommunity,
+    HiRAGCommunityConfig,
+    HiRAGCommunityResult,
+)
 
 __all__ = [
     "BuildGraph",
@@ -142,6 +148,7 @@ __all__ = [
     "RAGGraphTableNames",
     "RAGGraphVectorCollections",
     "CommunityReport",
+    "CommunitySchema",
     "FullTextIndexNames",
     "ComponentRef",
     "DeduplicateEntities",
@@ -168,6 +175,9 @@ __all__ = [
     "GraphCommunity",
     "GraphCommunityConfig",
     "GraphCommunityResult",
+    "HiRAGCommunity",
+    "HiRAGCommunityConfig",
+    "HiRAGCommunityResult",
     "ExtractEntities",
     "ExtractEntitiesConfig",
     "ExtractEntitiesResult",

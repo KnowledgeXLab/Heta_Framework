@@ -23,6 +23,7 @@ from heta_framework.kb.steps import (  # noqa: E402
     GraphTableNames,
     LightRAGTableNames,
     HiRAGTableNames,
+    HiRAGCommunity,
     MergeGraphIntoStore,
     ParseDocuments,
     SplitDocuments,
@@ -163,6 +164,7 @@ def test_hirag_procedure_expands_to_parse_split_extract_and_build_steps():
         SplitDocuments,
         ExtractHiRAGGraph,
         BuildHiRAGGraph,
+        HiRAGCommunity,
     ]
     assert steps[1].config.chunk_size == 256
     assert steps[1].config.overlap == 32
@@ -173,6 +175,9 @@ def test_hirag_procedure_expands_to_parse_split_extract_and_build_steps():
     assert steps[3].config.graph_cluster_seed == 123
     assert steps[3].config.sql_store == "sqlite"
     assert steps[3].config.vector_store == "vectors"
+    assert steps[4].config.table_names.communities == "hi_communities"
+    assert steps[4].config.sql_store == "sqlite"
+    assert steps[4].config.language_model == "reasoner"
 
 
 def test_hirag_procedure_keeps_original_hierachical_typo_alias():
