@@ -17,13 +17,14 @@ from heta_framework.kb.steps import (  # noqa: E402
     DeduplicateEntities,
     DeduplicateRelations,
     ExtractLightRAGGraph,
-    ExtractHiRAGGraph,
+    ExtractHiRAGBaseGraph,
     ExtractEntities,
     ExtractRelations,
     GraphTableNames,
     LightRAGTableNames,
     HiRAGTableNames,
     HiRAGCommunity,
+    HiRAGHierarchicalAggregation,
     MergeGraphIntoStore,
     ParseDocuments,
     SplitDocuments,
@@ -162,22 +163,26 @@ def test_hirag_procedure_expands_to_parse_split_extract_and_build_steps():
     assert [type(step) for step in steps] == [
         ParseDocuments,
         SplitDocuments,
-        ExtractHiRAGGraph,
-        BuildHiRAGGraph,
+        ExtractHiRAGBaseGraph,
+        HiRAGHierarchicalAggregation,
         HiRAGCommunity,
+        BuildHiRAGGraph,
     ]
     assert steps[1].config.chunk_size == 256
     assert steps[1].config.overlap == 32
     assert steps[2].config.graph_store == "graph"
-    assert steps[3].config.table_names.entities == "hi_entities"
-    assert steps[3].config.graph_cluster_algorithm == "leiden"
-    assert steps[3].config.max_graph_cluster_size == 7
-    assert steps[3].config.graph_cluster_seed == 123
-    assert steps[3].config.sql_store == "sqlite"
-    assert steps[3].config.vector_store == "vectors"
-    assert steps[4].config.table_names.communities == "hi_communities"
-    assert steps[4].config.sql_store == "sqlite"
+    assert steps[3].config.graph_store == "graph"
+    assert steps[3].config.embedding_model == "embedder"
+    assert steps[4].config.graph_cluster_algorithm == "leiden"
+    assert steps[4].config.max_graph_cluster_size == 7
+    assert steps[4].config.graph_cluster_seed == 123
     assert steps[4].config.language_model == "reasoner"
+    assert steps[5].config.table_names.entities == "hi_entities"
+    assert steps[5].config.graph_cluster_algorithm == "leiden"
+    assert steps[5].config.max_graph_cluster_size == 7
+    assert steps[5].config.graph_cluster_seed == 123
+    assert steps[5].config.sql_store == "sqlite"
+    assert steps[5].config.vector_store == "vectors"
 
 
 def test_hirag_procedure_keeps_original_hierachical_typo_alias():

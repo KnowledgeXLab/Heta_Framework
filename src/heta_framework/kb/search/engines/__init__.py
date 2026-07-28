@@ -21,6 +21,7 @@ from heta_framework.kb.search.engines.hi_rag import (
     HiRAGNobridgeQueryEngine,
     HiRAGQueryEngine,
 )
+from heta_framework.kb.search.engines.lean_rag import LeanRAGQueryEngine
 from heta_framework.kb.search.engines.keyword import SqlTextSearchEngine
 from heta_framework.kb.search.engines.multi_hop import MultiHopSearchEngine
 from heta_framework.kb.search.engines.rerank import RerankSearchEngine
@@ -43,6 +44,7 @@ __all__ = [
     "HiRAGLocalQueryEngine",
     "HiRAGNobridgeQueryEngine",
     "HiRAGQueryEngine",
+    "LeanRAGQueryEngine",
     "MultiHopSearchEngine",
     "RerankSearchEngine",
     "RewriteSearchEngine",

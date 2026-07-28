@@ -7,8 +7,10 @@ from dataclasses import dataclass, field
 from heta_framework.kb.steps import (
     BuildHiRAGGraph,
     BuildHiRAGGraphConfig,
-    ExtractHiRAGGraph,
-    ExtractHiRAGGraphConfig,
+    ExtractHiRAGBaseGraph,
+    ExtractHiRAGBaseGraphConfig,
+    HiRAGHierarchicalAggregation,
+    HiRAGHierarchicalAggregationConfig,
     HiRAGCommunity,
     HiRAGCommunityConfig,
     HiRAGTableNames,
@@ -114,16 +116,32 @@ class HiRAGProcedure:
                     object_store=self.object_store,
                 )
             ),
-            ExtractHiRAGGraph(
-                ExtractHiRAGGraphConfig(
+            ExtractHiRAGBaseGraph(
+                ExtractHiRAGBaseGraphConfig(
                     chunk_keys_artifact=self.chunk_keys_artifact,
                     result_artifact=self.extract_result_artifact,
                     graph_node_keys_artifact=self.graph_node_keys_artifact,
                     graph_edge_keys_artifact=self.graph_edge_keys_artifact,
                     chunks_artifact=self.chunks_artifact,
+                    extraction_trace_artifact="hi_rag_extraction_trace",
                     entity_extract_max_gleaning=self.entity_extract_max_gleaning,
                     entity_summary_to_max_tokens=self.entity_summary_to_max_tokens,
                     summary_llm_max_tokens=self.summary_llm_max_tokens,
+                    temperature=self.temperature,
+                    object_store=self.object_store,
+                    graph_store=self.graph_store,
+                    language_model=self.language_model,
+                )
+            ),
+            HiRAGHierarchicalAggregation(
+                HiRAGHierarchicalAggregationConfig(
+                    chunks_artifact=self.chunks_artifact,
+                    base_entities_artifact="hi_rag_base_entities",
+                    base_relations_artifact="hi_rag_base_relations",
+                    graph_node_keys_artifact=self.graph_node_keys_artifact,
+                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                    result_artifact="hi_rag_hierarchical_aggregation_result",
+                    extraction_trace_artifact="hi_rag_extraction_trace",
                     hierarchical_layers=self.hierarchical_layers,
                     hierarchical_max_length_in_cluster=self.hierarchical_max_length_in_cluster,
                     hierarchical_reduction_dimension=self.hierarchical_reduction_dimension,
@@ -131,11 +149,31 @@ class HiRAGProcedure:
                     hierarchical_sparsity_threshold=self.hierarchical_sparsity_threshold,
                     hierarchical_sparsity_change_rate=self.hierarchical_sparsity_change_rate,
                     clustering_backend=self.clustering_backend,  # type: ignore[arg-type]
+                    entity_summary_to_max_tokens=self.entity_summary_to_max_tokens,
+                    summary_llm_max_tokens=self.summary_llm_max_tokens,
                     temperature=self.temperature,
                     object_store=self.object_store,
                     graph_store=self.graph_store,
                     language_model=self.language_model,
                     embedding_model=self.embedding_model,
+                )
+            ),
+            HiRAGCommunity(
+                HiRAGCommunityConfig(
+                    graph_node_keys_artifact=self.graph_node_keys_artifact,
+                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                    community_schema_artifact=self.community_schema_artifact,
+                    community_reports_artifact=self.community_reports_artifact,
+                    community_report_keys_artifact=self.community_report_keys_artifact,
+                    result_artifact=self.community_result_artifact,
+                    report_context_max_tokens=self.max_token_for_community_report,
+                    batch_size=self.batch_size,
+                    graph_cluster_algorithm=self.graph_cluster_algorithm,
+                    max_graph_cluster_size=self.max_graph_cluster_size,
+                    graph_cluster_seed=self.graph_cluster_seed,
+                    temperature=self.temperature,
+                    object_store=self.object_store,
+                    language_model=self.language_model,
                 )
             ),
             BuildHiRAGGraph(
@@ -146,6 +184,8 @@ class HiRAGProcedure:
                     graph_edge_keys_artifact=self.graph_edge_keys_artifact,
                     chunks_artifact=self.chunks_artifact,
                     community_schema_artifact=self.community_schema_artifact,
+                    community_reports_artifact=self.community_reports_artifact,
+                    community_report_keys_artifact=self.community_report_keys_artifact,
                     result_artifact=self.build_result_artifact,
                     vector_metric=self.vector_metric,
                     graph_cluster_algorithm=self.graph_cluster_algorithm,
@@ -159,23 +199,6 @@ class HiRAGProcedure:
                     vector_store=self.vector_store,
                     language_model=self.language_model,
                     embedding_model=self.embedding_model,
-                )
-            ),
-            HiRAGCommunity(
-                HiRAGCommunityConfig(
-                    table_names=self.table_names,
-                    graph_node_keys_artifact=self.graph_node_keys_artifact,
-                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
-                    community_schema_artifact=self.community_schema_artifact,
-                    community_reports_artifact=self.community_reports_artifact,
-                    community_report_keys_artifact=self.community_report_keys_artifact,
-                    result_artifact=self.community_result_artifact,
-                    report_context_max_tokens=self.max_token_for_community_report,
-                    batch_size=self.batch_size,
-                    temperature=self.temperature,
-                    object_store=self.object_store,
-                    sql_store=self.sql_store,
-                    language_model=self.language_model,
                 )
             ),
         )

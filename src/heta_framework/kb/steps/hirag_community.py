@@ -11,23 +11,20 @@ from heta_framework.common.models.protocols import LanguageModelProtocol
 from heta_framework.common.stores.graph import GraphEdge, GraphNode
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import validate_object_prefix
-from heta_framework.common.stores.sql import SQLStoreProtocol
 from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
 from heta_framework.kb.steps.build_hirag_graph import (
-    HiRAGTableNames,
-    _community_row,
+    BuildHiRAGGraphConfig,
     _filter_edges_with_known_endpoints,
-    _upsert_community_rows,
 )
 from heta_framework.kb.steps.community_report import (
     CommunityReportGenerationConfig,
     CommunitySchema,
+    community_schema_to_dict,
     community_report_to_dict,
     generate_community_reports,
     put_community_report,
 )
 from heta_framework.kb.steps.extract_hirag_graph import HIRAG_PROMPTS
-from heta_framework.kb.steps.graph_storage import batches
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, model_ref, store_ref
 
@@ -36,7 +33,6 @@ from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, mo
 class HiRAGCommunityConfig:
     """Configuration for HiRAGCommunity."""
 
-    table_names: HiRAGTableNames = field(default_factory=HiRAGTableNames)
     graph_node_keys_artifact: str = "hi_rag_graph_node_keys"
     graph_edge_keys_artifact: str = "hi_rag_graph_edge_keys"
     community_schema_artifact: str = "hi_rag_community_schema"
@@ -50,8 +46,10 @@ class HiRAGCommunityConfig:
     report_max_output_tokens: int = 800
     temperature: float = 0.0
     batch_size: int = 128
+    graph_cluster_algorithm: str = "leiden"
+    max_graph_cluster_size: int = 10
+    graph_cluster_seed: int = 0xDEADBEEF
     object_store: str | None = None
-    sql_store: str | None = None
     language_model: str | None = None
     prompts: Mapping[str, Any] = field(default_factory=lambda: dict(HIRAG_PROMPTS))
 
@@ -69,6 +67,10 @@ class HiRAGCommunityConfig:
             raise ValueError("temperature must not be negative")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be greater than zero")
+        if self.graph_cluster_algorithm not in {"leiden", "connected_components"}:
+            raise ValueError("graph_cluster_algorithm must be one of: leiden, connected_components")
+        if self.max_graph_cluster_size <= 0:
+            raise ValueError("max_graph_cluster_size must be greater than zero")
         for name in (
             self.graph_node_keys_artifact,
             self.graph_edge_keys_artifact,
@@ -104,7 +106,6 @@ class HiRAGCommunity:
             components=frozenset(
                 {
                     store_ref("objects", self.config.object_store),
-                    store_ref("sql", self.config.sql_store),
                     model_ref("language", self.config.language_model),
                 }
             ),
@@ -112,7 +113,6 @@ class HiRAGCommunity:
                 {
                     self.config.graph_node_keys_artifact,
                     self.config.graph_edge_keys_artifact,
-                    self.config.community_schema_artifact,
                 }
             ),
         )
@@ -123,6 +123,7 @@ class HiRAGCommunity:
             artifacts=frozenset(
                 {
                     self.config.result_artifact,
+                    self.config.community_schema_artifact,
                     self.config.community_reports_artifact,
                     self.config.community_report_keys_artifact,
                 }
@@ -142,9 +143,6 @@ class HiRAGCommunity:
         object_store = _require_object_store(
             context.get_component(store_ref("objects", self.config.object_store).key)
         )
-        sql_store = _require_sql_store(
-            context.get_component(store_ref("sql", self.config.sql_store).key)
-        )
         language_model = _require_language_model(
             context.get_component(model_ref("language", self.config.language_model).key)
         )
@@ -156,7 +154,7 @@ class HiRAGCommunity:
         edges = _filter_edges_with_known_endpoints(nodes, edges)
         communities = tuple(
             _community_schema_from_artifact(item)
-            for item in context.get_artifact(self.config.community_schema_artifact)
+            for item in _community_schema_artifacts(nodes, edges, self.config)
         )
 
         reports = await generate_community_reports(
@@ -185,15 +183,14 @@ class HiRAGCommunity:
             ]
         )
 
-        community_rows = [_community_row(community_report_to_dict(report)) for report in reports]
-        async with sql_store.transaction() as tx:
-            for batch in batches(community_rows, self.config.batch_size):
-                await _upsert_community_rows(tx, self.config.table_names.communities, batch)
-
         result = HiRAGCommunityResult(
             community_count=len(reports),
             report_ids=tuple(report.community_id for report in reports),
             report_keys=report_keys,
+        )
+        context.set_artifact(
+            self.config.community_schema_artifact,
+            tuple(community_schema_to_dict(community) for community in communities),
         )
         context.set_artifact(
             self.config.community_reports_artifact,
@@ -254,6 +251,21 @@ def _community_schema_from_artifact(data: Mapping[str, Any]) -> CommunitySchema:
     )
 
 
+def _community_schema_artifacts(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    config: HiRAGCommunityConfig,
+) -> tuple[dict[str, Any], ...]:
+    build_config = BuildHiRAGGraphConfig(
+        graph_cluster_algorithm=config.graph_cluster_algorithm,
+        max_graph_cluster_size=config.max_graph_cluster_size,
+        graph_cluster_seed=config.graph_cluster_seed,
+    )
+    from heta_framework.kb.steps.build_hirag_graph import _community_schema
+
+    return tuple(_community_schema(nodes, edges, build_config))
+
+
 def _normalized_entity_id(value: Any) -> str:
     return html.unescape(str(value).upper().strip())
 
@@ -261,12 +273,6 @@ def _normalized_entity_id(value: Any) -> str:
 def _require_object_store(component: object) -> ObjectStoreProtocol:
     if not isinstance(component, ObjectStoreProtocol):
         raise TypeError("stores.objects must satisfy ObjectStoreProtocol")
-    return component
-
-
-def _require_sql_store(component: object) -> SQLStoreProtocol:
-    if not isinstance(component, SQLStoreProtocol):
-        raise TypeError("stores.sql must satisfy SQLStoreProtocol")
     return component
 
 

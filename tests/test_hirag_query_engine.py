@@ -233,13 +233,13 @@ async def _build_runtime(tmp_path):
         prompts=TEST_PROMPTS,
     )
     step = BuildHiRAGGraph(config)
-    await step.run(build_context)
     await HiRAGCommunity(
         HiRAGCommunityConfig(
-            table_names=config.table_names,
+            graph_cluster_algorithm="connected_components",
             prompts=TEST_PROMPTS,
         )
     ).run(build_context)
+    await step.run(build_context)
     assets = SearchAssetCollection(step.capabilities.search_assets)
     recipe = FakeRecipe(
         {

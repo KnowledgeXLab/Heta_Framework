@@ -187,12 +187,7 @@ def _config():
 
 def _community_config():
     return HiRAGCommunityConfig(
-        table_names=HiRAGTableNames(
-            entities="test_hi_entities",
-            relations="test_hi_relations",
-            communities="test_hi_communities",
-            chunks="test_hi_chunks",
-        ),
+        graph_cluster_algorithm="connected_components",
         prompts=TEST_PROMPTS,
     )
 
@@ -295,16 +290,18 @@ def test_hirag_community_writes_reports_and_sql_rows(tmp_path):
 
     async def run():
         await _put_inputs(object_store, context)
-        await BuildHiRAGGraph(_config()).run(context)
         await HiRAGCommunity(_community_config()).run(context)
+        await BuildHiRAGGraph(_config()).run(context)
         community_rows = await sql_store.fetch_all("SELECT * FROM test_hi_communities")
         report_key = context.artifacts["hi_rag_community_report_keys"][0]
         report = json.loads((await object_store.get(report_key)).decode("utf-8"))
-        return community_rows, report, language_model.requests[0].prompt
+        schema = context.artifacts["hi_rag_community_schema"]
+        return community_rows, report, language_model.requests[0].prompt, schema
 
-    community_rows, report, prompt = asyncio.run(run())
+    community_rows, report, prompt, schema = asyncio.run(run())
 
     assert len(community_rows) == 1
+    assert schema[0]["community_id"] == "community_0"
     assert report["report_json"]["title"] == "Alice Community"
     assert "-----Reports-----" in prompt
     assert "ALICE" in prompt

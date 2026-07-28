@@ -29,6 +29,13 @@ from heta_framework.kb.steps.build_hirag_graph import (
     HiRAGTableNames,
     HiRAGVectorCollections,
 )
+from heta_framework.kb.steps.build_leanrag_graph import (
+    BuildLeanRAGGraph,
+    BuildLeanRAGGraphConfig,
+    BuildLeanRAGGraphResult,
+    LeanRAGTableNames,
+    LeanRAGVectorCollections,
+)
 from heta_framework.kb.steps.embed import EmbedChunks, EmbedChunksConfig, EmbedChunksResult
 from heta_framework.kb.steps.deduplicate_entities import (
     DeduplicateEntities,
@@ -106,9 +113,23 @@ from heta_framework.kb.steps.extract_lightrag_graph import (
     ExtractLightRAGGraphResult,
 )
 from heta_framework.kb.steps.extract_hirag_graph import (
+    ExtractHiRAGBaseGraph,
+    ExtractHiRAGBaseGraphConfig,
+    ExtractHiRAGBaseGraphResult,
     ExtractHiRAGGraph,
     ExtractHiRAGGraphConfig,
     ExtractHiRAGGraphResult,
+    HiRAGHierarchicalAggregation,
+    HiRAGHierarchicalAggregationConfig,
+    HiRAGHierarchicalAggregationResult,
+)
+from heta_framework.kb.steps.extract_leanrag_graph import (
+    ExtractLeanRAGGraph,
+    ExtractLeanRAGGraphConfig,
+    ExtractLeanRAGGraphResult,
+    LeanRAGSemanticAggregation,
+    LeanRAGSemanticAggregationConfig,
+    LeanRAGSemanticAggregationResult,
 )
 from heta_framework.kb.steps.graph_community import (
     CommunityReport,
@@ -136,6 +157,9 @@ __all__ = [
     "BuildHiRAGGraph",
     "BuildHiRAGGraphConfig",
     "BuildHiRAGGraphResult",
+    "BuildLeanRAGGraph",
+    "BuildLeanRAGGraphConfig",
+    "BuildLeanRAGGraphResult",
     "ChunkTableNames",
     "ChunkVectorCollections",
     "GraphTableNames",
@@ -145,6 +169,8 @@ __all__ = [
     "HiRAGGraphIndexAdapter",
     "HiRAGTableNames",
     "HiRAGVectorCollections",
+    "LeanRAGTableNames",
+    "LeanRAGVectorCollections",
     "RAGGraphTableNames",
     "RAGGraphVectorCollections",
     "CommunityReport",
@@ -169,9 +195,21 @@ __all__ = [
     "ExtractLightRAGGraph",
     "ExtractLightRAGGraphConfig",
     "ExtractLightRAGGraphResult",
+    "ExtractHiRAGBaseGraph",
+    "ExtractHiRAGBaseGraphConfig",
+    "ExtractHiRAGBaseGraphResult",
     "ExtractHiRAGGraph",
     "ExtractHiRAGGraphConfig",
     "ExtractHiRAGGraphResult",
+    "HiRAGHierarchicalAggregation",
+    "HiRAGHierarchicalAggregationConfig",
+    "HiRAGHierarchicalAggregationResult",
+    "ExtractLeanRAGGraph",
+    "ExtractLeanRAGGraphConfig",
+    "ExtractLeanRAGGraphResult",
+    "LeanRAGSemanticAggregation",
+    "LeanRAGSemanticAggregationConfig",
+    "LeanRAGSemanticAggregationResult",
     "GraphCommunity",
     "GraphCommunityConfig",
     "GraphCommunityResult",

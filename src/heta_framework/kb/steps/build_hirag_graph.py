@@ -221,14 +221,23 @@ class BuildHiRAGGraph:
         edges = _filter_edges_with_known_endpoints(nodes, edges)
 
         await _upsert_graph_store(graph_store, nodes, edges)
-        community_schema = tuple(
-            community_schema_to_dict(_community_schema_dict_to_shared(schema))
-            for schema in _community_schema(nodes, edges, self.config)
+        existing_schema = _optional_artifact(context, self.config.community_schema_artifact)
+        community_schema = (
+            tuple(dict(item) for item in existing_schema)
+            if existing_schema is not None
+            else tuple(
+                community_schema_to_dict(_community_schema_dict_to_shared(schema))
+                for schema in _community_schema(nodes, edges, self.config)
+            )
+        )
+        community_reports = tuple(
+            dict(item) for item in (_optional_artifact(context, self.config.community_reports_artifact) or ())
         )
 
         node_rows = [_entity_row(node) for node in nodes]
         edge_rows = [_relation_row(edge) for edge in edges]
         chunk_rows = [_chunk_row(chunk) for chunk in chunks]
+        community_rows = [_community_row(report) for report in community_reports]
         vectors = await _embed_entities(
             embedding_model,
             nodes,
@@ -244,6 +253,8 @@ class BuildHiRAGGraph:
                 await _upsert_relation_rows(tx, self.config.table_names.relations, batch)
             for batch in batches(chunk_rows, self.config.batch_size):
                 await _upsert_chunk_rows(tx, self.config.table_names.chunks, batch)
+            for batch in batches(community_rows, self.config.batch_size):
+                await _upsert_community_rows(tx, self.config.table_names.communities, batch)
 
         if vectors:
             await vector_store.create_collection(
@@ -259,13 +270,20 @@ class BuildHiRAGGraph:
         result = BuildHiRAGGraphResult(
             entity_count=len(nodes),
             relation_count=len(edges),
-            community_count=len(community_schema),
+            community_count=len(community_reports) if community_reports else len(community_schema),
             chunk_count=len(chunks),
             entity_vector_count=len(vectors),
             vector_dimension=vector_dimension,
         )
         context.set_artifact(self.config.result_artifact, result)
         context.set_artifact(self.config.community_schema_artifact, community_schema)
+
+
+def _optional_artifact(context: StepContextProtocol, name: str) -> Any | None:
+    try:
+        return context.get_artifact(name)
+    except KeyError:
+        return None
 
 
 class HiRAGGraphIndexAdapter:
