@@ -47,7 +47,7 @@ Keeping embeddings in ObjectStore makes them cacheable, inspectable, and reusabl
 ```python
 EmbedChunksConfig(
     embeddings_prefix="embeddings",
-    batch_size=64,
+    batch_size=10,
     object_store=None,
     embedding_model=None,
     chunk_keys_artifact="chunk_keys",
@@ -57,7 +57,7 @@ EmbedChunksConfig(
 | Parameter | Meaning |
 | --- | --- |
 | `embeddings_prefix` | Prefix for `ChunkEmbedding` JSON. |
-| `batch_size` | Number of chunks per embedding request. |
+| `batch_size` | Number of chunks per embedding request. Defaults to the portable value `10`; raise it explicitly after confirming that the provider accepts larger batches. |
 | `object_store` | Named ObjectStore. Defaults to `stores.objects`. |
 | `embedding_model` | Named embedding model. Defaults to `models.embedding`. |
 | `chunk_keys_artifact` | Upstream chunk key artifact name. |
