@@ -1,5 +1,6 @@
 """Step protocols and shared types for knowledge base recipes."""
 
+from heta_framework.kb.cleanup import StepCleanupPlan
 from heta_framework.kb.steps.build_graph import (
     BuildGraph,
     BuildGraphConfig,
@@ -13,7 +14,6 @@ from heta_framework.kb.steps.build_wiki_pages import (
     BuildWikiPagesResult,
     WikiDocumentLimitError,
 )
-from heta_framework.kb.steps.embed import EmbedChunks, EmbedChunksConfig, EmbedChunksResult
 from heta_framework.kb.steps.deduplicate_entities import (
     DeduplicateEntities,
     DeduplicateEntitiesConfig,
@@ -24,6 +24,7 @@ from heta_framework.kb.steps.deduplicate_relations import (
     DeduplicateRelationsConfig,
     DeduplicateRelationsResult,
 )
+from heta_framework.kb.steps.embed import EmbedChunks, EmbedChunksConfig, EmbedChunksResult
 from heta_framework.kb.steps.extract_entities import (
     ExtractEntities,
     ExtractEntitiesConfig,
@@ -34,17 +35,17 @@ from heta_framework.kb.steps.extract_relations import (
     ExtractRelationsConfig,
     ExtractRelationsResult,
 )
-from heta_framework.kb.steps.index import (
-    ChunkVectorCollections,
-    IndexVectors,
-    IndexVectorsConfig,
-    IndexVectorsResult,
-)
 from heta_framework.kb.steps.full_text import (
     FullTextIndexNames,
     IndexFullText,
     IndexFullTextConfig,
     IndexFullTextResult,
+)
+from heta_framework.kb.steps.index import (
+    ChunkVectorCollections,
+    IndexVectors,
+    IndexVectorsConfig,
+    IndexVectorsResult,
 )
 from heta_framework.kb.steps.merge import MergeChunks, MergeChunksConfig, MergeChunksResult
 from heta_framework.kb.steps.merge_graph_into_store import (
@@ -84,7 +85,6 @@ from heta_framework.kb.steps.types import (
     parser_ref,
     store_ref,
 )
-from heta_framework.kb.cleanup import StepCleanupPlan
 
 __all__ = [
     "BuildGraph",

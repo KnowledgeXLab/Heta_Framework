@@ -19,7 +19,7 @@ from heta_framework.kb.parsing import (  # noqa: E402
 
 
 def test_parsed_document_serializes_to_expected_shape():
-    data = "hello heta".encode("utf-8")
+    data = b"hello heta"
     source = make_parsed_source(
         key="raw/rag_paper.pdf",
         name="rag_paper.pdf",

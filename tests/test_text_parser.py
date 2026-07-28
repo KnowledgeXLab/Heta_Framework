@@ -20,7 +20,7 @@ def test_text_parser_satisfies_protocol():
 
 
 def test_text_parser_parses_utf8_text():
-    data = "Heta parser\n第二行".encode("utf-8")
+    data = "Heta parser\n第二行".encode()
     source = make_parsed_source(
         key="raw/doc.txt",
         name="doc.txt",

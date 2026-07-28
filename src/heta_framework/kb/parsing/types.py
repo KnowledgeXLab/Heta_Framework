@@ -65,7 +65,7 @@ class ParsedTextContent:
         return {"text": self.text, "media_type": self.media_type}
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "ParsedTextContent":
+    def from_dict(cls, data: Mapping[str, Any]) -> ParsedTextContent:
         """Create parsed text content from a dictionary."""
         return cls(text=data["text"], media_type=data["media_type"])
 
@@ -101,7 +101,7 @@ class ParsedDocument:
         return self.to_json().encode("utf-8")
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ParsedDocument":
+    def from_dict(cls, data: dict[str, Any]) -> ParsedDocument:
         """Create a parsed document from a dictionary."""
         raw_original_content = data.get("original_content")
         return cls(
@@ -116,7 +116,7 @@ class ParsedDocument:
         )
 
     @classmethod
-    def from_json(cls, data: str | bytes) -> "ParsedDocument":
+    def from_json(cls, data: str | bytes) -> ParsedDocument:
         """Create a parsed document from JSON text or bytes."""
         if isinstance(data, bytes):
             data = data.decode("utf-8")

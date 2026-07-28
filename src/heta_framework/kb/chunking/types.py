@@ -68,7 +68,7 @@ class ParsedChunk:
         return self.to_json().encode("utf-8")
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ParsedChunk":
+    def from_dict(cls, data: dict[str, Any]) -> ParsedChunk:
         """Create a parsed chunk from a dictionary."""
         return cls(
             chunk_id=data["chunk_id"],
@@ -89,7 +89,7 @@ class ParsedChunk:
         )
 
     @classmethod
-    def from_json(cls, data: str | bytes) -> "ParsedChunk":
+    def from_json(cls, data: str | bytes) -> ParsedChunk:
         """Create a parsed chunk from JSON text or bytes."""
         if isinstance(data, bytes):
             data = data.decode("utf-8")
@@ -98,7 +98,7 @@ class ParsedChunk:
 
 def make_chunk_id(*, document_id: str, page_index: int, chunk_index: int, text: str) -> str:
     """Create a stable chunk id from document position and text."""
-    payload = f"{document_id}\n{page_index}\n{chunk_index}\n{text}".encode("utf-8")
+    payload = f"{document_id}\n{page_index}\n{chunk_index}\n{text}".encode()
     return f"chunk_{hashlib.sha256(payload).hexdigest()[:16]}"
 
 
@@ -139,7 +139,7 @@ class ChunkEmbedding:
         return self.to_json().encode("utf-8")
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ChunkEmbedding":
+    def from_dict(cls, data: dict[str, Any]) -> ChunkEmbedding:
         """Create a chunk embedding from a dictionary."""
         return cls(
             chunk_id=data["chunk_id"],
@@ -150,7 +150,7 @@ class ChunkEmbedding:
         )
 
     @classmethod
-    def from_json(cls, data: str | bytes) -> "ChunkEmbedding":
+    def from_json(cls, data: str | bytes) -> ChunkEmbedding:
         """Create a chunk embedding from JSON text or bytes."""
         if isinstance(data, bytes):
             data = data.decode("utf-8")

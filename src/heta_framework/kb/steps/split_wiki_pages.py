@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix

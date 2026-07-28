@@ -62,7 +62,7 @@ class ToolCallingLanguageModel(LanguageModel):
         self.validate_function_calling_support = validate_function_calling_support
 
     @classmethod
-    def from_config(cls, config: ModelConfig) -> "ToolCallingLanguageModel":
+    def from_config(cls, config: ModelConfig) -> ToolCallingLanguageModel:
         """Create a tool-calling model from ``ModelConfig``."""
         return cls(**asdict(config))
 
@@ -326,12 +326,12 @@ def _parse_tool_arguments(
         )
     try:
         parsed = json.loads(raw_arguments)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
         if repair_json is None:
             raise ModelResponseError(
                 "tool call arguments could not be parsed as JSON",
                 trace_context=trace_context,
-            )
+            ) from exc
         try:
             parsed = json.loads(repair_json(raw_arguments))
         except Exception as exc:

@@ -64,8 +64,8 @@ class ImagePart:
         *,
         mime_type: str | None = None,
         detail: str | None = None,
-        format: str | None = None,
-    ) -> "ImagePart":
+        format: str | None = None,  # noqa: A002
+    ) -> ImagePart:
         """Create an image part from a remote URI or already encoded data URI."""
         return cls(url=uri, mime_type=mime_type, detail=detail, format=format)
 
@@ -76,8 +76,8 @@ class ImagePart:
         *,
         mime_type: str | None = None,
         detail: str | None = None,
-        format: str | None = None,
-    ) -> "ImagePart":
+        format: str | None = None,  # noqa: A002
+    ) -> ImagePart:
         """Create an image part from a local image file."""
         if str(file).strip() == "":
             raise ValueError("file must not be empty")
@@ -96,8 +96,8 @@ class ImagePart:
         *,
         mime_type: str,
         detail: str | None = None,
-        format: str | None = None,
-    ) -> "ImagePart":
+        format: str | None = None,  # noqa: A002
+    ) -> ImagePart:
         """Create an image part from in-memory image bytes."""
         if len(data) == 0:
             raise ValueError("data must not be empty")
@@ -115,8 +115,8 @@ ContentPart = TextPart | ImagePart
 
 
 def _data_url_from_file(file: str | PathLike[str], *, mime_type: str | None) -> tuple[str, str]:
-    from pathlib import Path
     import mimetypes
+    from pathlib import Path
 
     file_path = Path(file)
     inferred_mime_type = mime_type or mimetypes.guess_type(file_path.name)[0]

@@ -137,7 +137,12 @@ def test_pdf_parser_satisfies_protocol_and_groups_pages():
 def test_office_parser_uses_document_extractor():
     parser = OfficeParser(FakeExtractor())
     data = b"pptx"
-    source = make_parsed_source(key="raw/slides.pptx", name="slides.pptx", file_type="pptx", data=data)
+    source = make_parsed_source(
+        key="raw/slides.pptx",
+        name="slides.pptx",
+        file_type="pptx",
+        data=data,
+    )
 
     async def run():
         return await parser.parse(source, data)
@@ -151,7 +156,12 @@ def test_office_parser_uses_document_extractor():
 def test_pdf_parser_rejects_office_file_type():
     parser = PdfParser(FakeExtractor())
     data = b"pptx"
-    source = make_parsed_source(key="raw/slides.pptx", name="slides.pptx", file_type="pptx", data=data)
+    source = make_parsed_source(
+        key="raw/slides.pptx",
+        name="slides.pptx",
+        file_type="pptx",
+        data=data,
+    )
 
     async def run():
         return await parser.parse(source, data)

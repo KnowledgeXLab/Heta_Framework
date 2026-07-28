@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from heta_framework.common.models.language.types import ToolDefinition
 from heta_framework.kb.search.assets import SearchAsset, SearchAssetCollection, SearchAssetRef
@@ -57,7 +57,7 @@ class QueryToolResult:
         content: str,
         *,
         metadata: Mapping[str, Any] | None = None,
-    ) -> "QueryToolResult":
+    ) -> QueryToolResult:
         """Create a model-visible error result without raising from the tool loop."""
         return cls(content=content, metadata=metadata or {}, is_error=True)
 
@@ -286,7 +286,7 @@ class QueryToolRegistry:
         tool: QueryToolProtocol,
         *,
         replace: bool = False,
-    ) -> "QueryToolRegistry":
+    ) -> QueryToolRegistry:
         """Register one query tool."""
         if not isinstance(tool, QueryToolProtocol):
             raise TypeError("tool must satisfy QueryToolProtocol")
@@ -333,7 +333,7 @@ def missing_query_tool_assets(
 
 def missing_query_tool_components(
     tool: QueryToolProtocol,
-    recipe: "KnowledgeRecipe",
+    recipe: KnowledgeRecipe,
 ) -> tuple[ComponentRef, ...]:
     """Return recipe components that are required by a tool but missing."""
     return tuple(ref for ref in tool.required_components if not recipe.has_component(ref))

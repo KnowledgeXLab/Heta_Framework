@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.vector import (
@@ -11,12 +12,11 @@ from heta_framework.common.stores.vector import (
     VectorRecord,
     VectorStoreProtocol,
 )
-from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
 from heta_framework.kb.chunking import ChunkEmbedding, ParsedChunk
+from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
 from heta_framework.kb.search import SearchAsset
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, store_ref
-
 
 IndexVectorsPreset = Literal["default", "wiki"]
 
@@ -300,7 +300,7 @@ def _set_preset_value(
         raise ValueError(f"{field_name} must not be empty")
     if value != expected and not allow_custom:
         raise ValueError(
-            f"{field_name} must be {expected!r} for preset {getattr(config, 'preset')!r}"
+            f"{field_name} must be {expected!r} for preset {config.preset!r}"
         )
     object.__setattr__(config, field_name, value)
 

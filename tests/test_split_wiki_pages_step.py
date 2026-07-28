@@ -141,7 +141,10 @@ def test_split_wiki_pages_builds_heading_aware_chunks(tmp_path):
     assert all(chunk.source.file_type == "wiki" for chunk in chunks)
     assert all(chunk.source.key == "wiki/pages/1-plant-cell-metabolism.md" for chunk in chunks)
     assert all(chunk.origin_source == _wiki_document(content).source for chunk in chunks)
-    assert all(ParsedChunk.from_json(chunk.to_json()).origin_source == chunk.origin_source for chunk in chunks)
+    assert all(
+        ParsedChunk.from_json(chunk.to_json()).origin_source == chunk.origin_source
+        for chunk in chunks
+    )
     assert "Page: Plant Cell Metabolism" in chunks[-1].text
     assert "Section: Photosynthesis > Chloroplast > Light Reactions" in chunks[-1].text
     assert "### Not a real heading" in chunks[-1].text
