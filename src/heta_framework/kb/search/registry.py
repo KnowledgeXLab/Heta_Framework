@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from heta_framework.kb.search.assets import SearchAssetCollection
+from heta_framework.kb.search.assets import SearchAssetCollection, SearchAssetRef
 from heta_framework.kb.search.protocols import QueryEngineProtocol
 
 if TYPE_CHECKING:
@@ -24,6 +24,7 @@ class QueryEngineRegistry:
     def defaults(cls) -> "QueryEngineRegistry":
         """Return the built-in query engine registry."""
         from heta_framework.kb.search.engines import (
+            AgenticQueryEngine,
             FullTextSearchEngine,
             HetaGraphSearchEngine,
             HybridSearchEngine,
@@ -32,13 +33,24 @@ class QueryEngineRegistry:
             RewriteSearchEngine,
             SqlTextSearchEngine,
             VectorSearchEngine,
+            WikiHybridSearchEngine,
         )
 
         return cls(
             [
                 VectorSearchEngine(),
+                VectorSearchEngine(
+                    mode="wiki_vector_search",
+                    asset_ref=SearchAssetRef(kind="wiki_chunk_vector_index"),
+                ),
                 SqlTextSearchEngine(),
                 FullTextSearchEngine(),
+                FullTextSearchEngine(
+                    mode="wiki_full_text_search",
+                    asset_ref=SearchAssetRef(kind="wiki_chunk_full_text_index"),
+                ),
+                WikiHybridSearchEngine(),
+                AgenticQueryEngine(),
                 HetaGraphSearchEngine(),
                 HybridSearchEngine(),
                 RerankSearchEngine(),
@@ -102,6 +114,7 @@ class QueryEngineRegistry:
             if _is_discoverable(engine)
             if not assets.missing(engine.required_assets)
             and not _missing_components(recipe, engine)
+            and _is_available_for_recipe(engine, recipe)
         )
 
 
@@ -122,3 +135,11 @@ def _missing_components(
 
 def _is_discoverable(engine: QueryEngineProtocol) -> bool:
     return bool(getattr(engine, "discoverable", True))
+
+
+def _is_available_for_recipe(
+    engine: QueryEngineProtocol,
+    recipe: "KnowledgeRecipe",
+) -> bool:
+    check = getattr(engine, "is_available_for", None)
+    return bool(check(recipe)) if callable(check) else True

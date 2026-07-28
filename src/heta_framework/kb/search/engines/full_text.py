@@ -46,7 +46,9 @@ class FullTextSearchEngine:
                 filters=dict(request.filters) or None,
             ),
         )
-        results = tuple(_hit_to_result(hit, asset=asset) for hit in hits)
+        results = tuple(
+            _hit_to_result(hit, asset=asset, retrieval_method=self.mode) for hit in hits
+        )
         answer, answer_metadata = await _generate_answer(
             context=context,
             request=request,
@@ -58,7 +60,7 @@ class FullTextSearchEngine:
         if request.trace:
             trace = (
                 QueryTraceEvent(
-                    stage="full_text_search",
+                    stage=self.mode,
                     message="Searched chunk full-text index.",
                     metadata={
                         "index": index,
@@ -76,7 +78,7 @@ class FullTextSearchEngine:
             trace=trace,
             metadata={
                 "index": index,
-                "retrieval_method": "full_text_search",
+                "retrieval_method": self.mode,
                 "ranking": _metadata_string(asset.metadata, "ranking", default="bm25"),
                 **answer_metadata,
             },
@@ -112,7 +114,7 @@ async def _generate_answer(
     }
 
 
-def _hit_to_result(hit: object, *, asset: SearchAsset) -> QueryResult:
+def _hit_to_result(hit: object, *, asset: SearchAsset, retrieval_method: str) -> QueryResult:
     hit_id = getattr(hit, "id")
     hit_text = getattr(hit, "text")
     score = getattr(hit, "score")
@@ -127,6 +129,9 @@ def _hit_to_result(hit: object, *, asset: SearchAsset) -> QueryResult:
         chunk_index=metadata.get("chunk_index"),
         token_start=metadata.get("token_start"),
         token_end=metadata.get("token_end"),
+        origin_object_key=metadata.get("origin_source_key"),
+        origin_object_name=metadata.get("origin_source_name"),
+        origin_object_type=metadata.get("origin_source_file_type"),
     )
     return QueryResult(
         id=str(hit_id),
@@ -137,7 +142,7 @@ def _hit_to_result(hit: object, *, asset: SearchAsset) -> QueryResult:
         metadata={
             **metadata,
             "ranking": _metadata_string(asset.metadata, "ranking", default="bm25"),
-            "retrieval_method": "full_text_search",
+            "retrieval_method": retrieval_method,
             "search_asset": asset.key,
             "index": asset.name,
         },

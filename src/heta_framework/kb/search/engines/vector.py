@@ -91,7 +91,7 @@ class VectorSearchEngine:
         if request.trace:
             trace = (
                 QueryTraceEvent(
-                    stage="vector_search",
+                    stage=self.mode,
                     message="Searched chunk vector index.",
                     metadata={
                         "collection": collection,

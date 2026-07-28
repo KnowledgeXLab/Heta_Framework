@@ -9,17 +9,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from heta_framework.kb import (  # noqa: E402
     KnowledgeBaseBuilder,
     KnowledgeRecipe,
+    QueryCitation,
     QueryContext,
     QueryEngineRegistry,
+    QueryEvidenceLedger,
     QueryRequest,
     QueryResponse,
     QueryResult,
+    QueryToolContext,
+    QueryToolProtocol,
+    QueryToolRegistry,
+    QueryToolResult,
+    QueryTraceEvent,
     SearchAsset,
     SearchAssetCollection,
     SearchAssetRef,
     StepCleanupPlan,
     StepCapabilities,
     StepRequirements,
+    make_query_tool_definition,
+    missing_query_tool_assets,
+    missing_query_tool_components,
+    model_ref,
 )
 from heta_framework.common.models import EmbeddingRequest, EmbeddingResult  # noqa: E402
 from heta_framework.common.stores import (  # noqa: E402
@@ -122,6 +133,28 @@ class FakeFullTextStep:
         return StepCleanupPlan()
 
 
+def test_query_response_preserves_v0_1_0_positional_arguments():
+    result = QueryResult(id="legacy_result", text="Legacy result.")
+    citation = QueryCitation(id="legacy_citation", result_id=result.id)
+    trace = QueryTraceEvent(stage="legacy", message="Legacy trace.")
+
+    response = QueryResponse(
+        "legacy_search",
+        (result,),
+        "Legacy answer.",
+        (citation,),
+        (trace,),
+        {"legacy": True},
+    )
+
+    assert response.results == (result,)
+    assert response.answer == "Legacy answer."
+    assert response.citations == (citation,)
+    assert response.trace == (trace,)
+    assert response.metadata == {"legacy": True}
+    assert response.insights == ()
+
+
 class FakeQueryEngine:
     mode = "fake_search"
     required_assets = frozenset({SearchAssetRef(kind="chunk_vector_index")})
@@ -137,6 +170,41 @@ class FakeQueryEngine:
                     score=1.0,
                 ),
             ),
+        )
+
+
+class FakeQueryTool:
+    name = "search_fake"
+    description = "Search fake chunks for evidence."
+    parameters_schema = {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string"},
+            "top_k": {"type": "integer", "minimum": 1},
+        },
+        "required": ["query"],
+    }
+    required_assets = frozenset({SearchAssetRef(kind="chunk_vector_index")})
+    required_components = frozenset({model_ref("embedding")})
+
+    async def run(self, arguments, context: QueryToolContext) -> QueryToolResult:
+        query = str(arguments["query"])
+        top_k = int(arguments.get("top_k", context.request.top_k))
+        response = await context.query(
+            "fake_search",
+            QueryRequest(text=query, mode="fake_search", top_k=top_k),
+        )
+        return QueryToolResult(
+            content=f"Found {len(response.results)} fake result(s) for: {query}",
+            results=response.results,
+            citations=(
+                QueryCitation(
+                    id="citation_1",
+                    result_id=response.results[0].id,
+                    text=response.results[0].text,
+                ),
+            ),
+            metadata={"wrapped_mode": response.mode},
         )
 
 
@@ -189,6 +257,33 @@ def test_query_engine_registry_reports_available_modes():
     ) == frozenset({"fake_search"})
 
 
+def test_query_tool_registry_reports_requirements_and_model_definitions():
+    tool = FakeQueryTool()
+    registry = QueryToolRegistry([tool])
+
+    assert isinstance(tool, QueryToolProtocol)
+    assert registry.names == frozenset({"search_fake"})
+    assert registry.get("search_fake") is tool
+    assert registry.required_assets == frozenset({SearchAssetRef(kind="chunk_vector_index")})
+    assert registry.required_components == frozenset({model_ref("embedding")})
+    assert missing_query_tool_assets(tool, SearchAssetCollection()) == (
+        SearchAssetRef(kind="chunk_vector_index"),
+    )
+    assert missing_query_tool_components(tool, KnowledgeRecipe()) == (model_ref("embedding"),)
+
+    definition = make_query_tool_definition(tool)
+
+    assert definition.name == "search_fake"
+    assert definition.description == "Search fake chunks for evidence."
+    assert definition.parameters_schema["required"] == ["query"]
+    assert registry.model_tool_definitions() == (definition,)
+
+
+def test_query_tool_registry_rejects_duplicate_names():
+    with pytest.raises(ValueError, match="already registered"):
+        QueryToolRegistry([FakeQueryTool(), FakeQueryTool()])
+
+
 def test_query_context_can_delegate_to_another_engine():
     async def run():
         build_result = await KnowledgeBaseBuilder().build(KnowledgeRecipe())
@@ -214,6 +309,48 @@ def test_query_context_can_delegate_to_another_engine():
 
         assert response.mode == "fake_search"
         assert response.results[0].text == "heta -> chunks"
+
+    asyncio.run(run())
+
+
+def test_query_tool_context_can_delegate_and_record_evidence():
+    async def run():
+        build_result = await KnowledgeBaseBuilder().build(KnowledgeRecipe())
+        query_context = QueryContext(
+            recipe=KnowledgeRecipe(),
+            run_record=build_result.record,
+            assets=SearchAssetCollection(
+                [
+                    SearchAsset(
+                        kind="chunk_vector_index",
+                        name="chunks",
+                        metadata={"collection": "chunks"},
+                    )
+                ]
+            ),
+            engines=QueryEngineRegistry([FakeQueryEngine()]),
+        )
+        ledger = QueryEvidenceLedger()
+        tool_context = QueryToolContext(
+            query_context=query_context,
+            request=QueryRequest(text="heta"),
+            ledger=ledger,
+        )
+
+        result = await FakeQueryTool().run({"query": "heta", "top_k": 1}, tool_context)
+        record = ledger.add_result(
+            tool_name="search_fake",
+            tool_call_id="call_1",
+            result=result,
+        )
+
+        assert record.evidence_id == "evidence_001_search_fake"
+        assert record.tool_call_id == "call_1"
+        assert ledger.results == result.results
+        assert ledger.citations == result.citations
+        assert ledger.total_content_chars == len(result.content)
+        assert "[evidence_001_search_fake] search_fake" in ledger.to_context_text()
+        assert tool_context.require_asset(SearchAssetRef(kind="chunk_vector_index")).name == "chunks"
 
     asyncio.run(run())
 
@@ -277,7 +414,13 @@ def test_knowledge_base_query_runs_vector_search():
                     id="chunk_heta",
                     vector=_vector_for_text("heta builds knowledge bases"),
                     text="Heta builds knowledge bases from recipes.",
-                    metadata={"document_id": "doc_1", "source_key": "raw/heta.txt"},
+                    metadata={
+                        "document_id": "doc_1",
+                        "source_key": "wiki/pages/1-heta.md",
+                        "origin_source_key": "raw/heta.txt",
+                        "origin_source_name": "heta.txt",
+                        "origin_source_file_type": "txt",
+                    },
                 ),
                 VectorRecord(
                     id="chunk_other",
@@ -301,7 +444,12 @@ def test_knowledge_base_query_runs_vector_search():
         assert response.mode == "vector_search"
         assert len(response.results) == 1
         assert response.results[0].id == "chunk_heta"
-        assert response.results[0].source["object_key"] == "raw/heta.txt"
+        assert response.results[0].source["object_key"] == "wiki/pages/1-heta.md"
+        assert response.results[0].source["origin"] == {
+            "object_key": "raw/heta.txt",
+            "object_name": "heta.txt",
+            "object_type": "txt",
+        }
         assert response.results[0].source["chunk_ids"] == ("chunk_heta",)
         assert response.citations[0].source == response.results[0].source
 

@@ -7,6 +7,12 @@ from heta_framework.kb.steps.build_graph import (
     GraphTableNames,
     GraphVectorCollections,
 )
+from heta_framework.kb.steps.build_wiki_pages import (
+    BuildWikiPages,
+    BuildWikiPagesConfig,
+    BuildWikiPagesResult,
+    WikiDocumentLimitError,
+)
 from heta_framework.kb.steps.embed import EmbedChunks, EmbedChunksConfig, EmbedChunksResult
 from heta_framework.kb.steps.deduplicate_entities import (
     DeduplicateEntities,
@@ -60,6 +66,12 @@ from heta_framework.kb.steps.rechunk import (
     RechunkDocumentsResult,
 )
 from heta_framework.kb.steps.split import SplitDocuments, SplitDocumentsConfig, SplitDocumentsResult
+from heta_framework.kb.steps.split_wiki_pages import (
+    SplitWikiPages,
+    SplitWikiPagesConfig,
+    SplitWikiPagesResult,
+    WikiPageChunkLimitError,
+)
 from heta_framework.kb.steps.types import (
     ComponentRef,
     IssueResolution,
@@ -78,6 +90,10 @@ __all__ = [
     "BuildGraph",
     "BuildGraphConfig",
     "BuildGraphResult",
+    "BuildWikiPages",
+    "BuildWikiPagesConfig",
+    "BuildWikiPagesResult",
+    "WikiDocumentLimitError",
     "ChunkTableNames",
     "ChunkVectorCollections",
     "GraphTableNames",
@@ -127,6 +143,10 @@ __all__ = [
     "SplitDocuments",
     "SplitDocumentsConfig",
     "SplitDocumentsResult",
+    "SplitWikiPages",
+    "SplitWikiPagesConfig",
+    "SplitWikiPagesResult",
+    "WikiPageChunkLimitError",
     "StepCapabilities",
     "StepCleanupPlan",
     "StepIssue",

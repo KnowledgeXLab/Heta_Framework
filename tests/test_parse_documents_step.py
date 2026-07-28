@@ -128,6 +128,9 @@ def test_parse_documents_writes_parsed_documents(tmp_path):
     assert document.source.name == "readme.md"
     assert document.source.file_type == "md"
     assert document.pages[0].text == "# Heta\n\nParser step"
+    assert document.original_content is not None
+    assert document.original_content.text == "# Heta\n\nParser step"
+    assert document.original_content.media_type == "text/markdown"
 
 
 def test_parse_documents_reuses_existing_parsed_document(tmp_path):

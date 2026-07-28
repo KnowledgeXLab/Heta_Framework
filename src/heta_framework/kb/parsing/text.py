@@ -8,6 +8,7 @@ from heta_framework.kb.parsing.types import (
     ParsedDocument,
     ParsedPage,
     ParsedSource,
+    ParsedTextContent,
     make_document_id,
 )
 
@@ -42,10 +43,16 @@ class TextParser:
             raise ValueError(f"unsupported file type for TextParser: {source.file_type}")
 
         text = _decode_text(data, self.config.encodings)
+        original_content = (
+            ParsedTextContent(text=text, media_type="text/markdown")
+            if file_type in {"md", "markdown"} and text.strip()
+            else None
+        )
         return ParsedDocument(
             document_id=make_document_id(source.content_sha256),
             source=source,
             pages=[ParsedPage(page_index=0, text=text)],
+            original_content=original_content,
         )
 
 
