@@ -31,6 +31,11 @@ expanded_steps = procedure.steps()
 
 The recipe and builder validate components, artifacts, and execution order against those real steps.
 
+Built-in procedures:
+
+- [`HetaWikiProcedure`](heta-wiki-procedure.en.md): builds Wiki pages, Wiki chunks, and vector/full-text indexes.
+- `HetaGraphProcedure`: extracts graph facts and builds or merges a Heta graph.
+
 ## HetaGraphProcedure
 
 `HetaGraphProcedure` packages the Heta-style graph build path after `IndexVectors`. It covers HetaDB-style graph construction, not the base vector retrieval path.

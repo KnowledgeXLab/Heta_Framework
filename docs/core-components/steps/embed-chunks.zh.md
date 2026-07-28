@@ -47,7 +47,7 @@ read chunk_keys
 ```python
 EmbedChunksConfig(
     embeddings_prefix="embeddings",
-    batch_size=64,
+    batch_size=10,
     object_store=None,
     embedding_model=None,
     chunk_keys_artifact="chunk_keys",
@@ -57,7 +57,7 @@ EmbedChunksConfig(
 | 参数 | 说明 |
 | --- | --- |
 | `embeddings_prefix` | `ChunkEmbedding` JSON 写入 prefix。 |
-| `batch_size` | 单次 embedding 请求包含的 chunk 数量。 |
+| `batch_size` | 单次 embedding 请求包含的 chunk 数量。默认为兼容常见 OpenAI-compatible 服务的 `10`；确认服务支持更大批量后可以显式调高。 |
 | `object_store` | 命名 ObjectStore。默认引用 `stores.objects`。 |
 | `embedding_model` | 命名 embedding model。默认引用 `models.embedding`。 |
 | `chunk_keys_artifact` | 上游 chunk key artifact 名称。 |

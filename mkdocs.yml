@@ -58,6 +58,7 @@ plugins:
                     - Document parsers: core-components/parsers/document-parsers.en.md
                 - Procedures:
                     - Knowledge procedures: core-components/procedures/knowledge-procedures.en.md
+                    - Heta Wiki procedure: core-components/procedures/heta-wiki-procedure.en.md
                 - Search:
                     - Query protocols: core-components/search/query-protocols.en.md
                     - Vector search: core-components/search/vector-search.en.md
@@ -65,6 +66,7 @@ plugins:
                     - Full-text search: core-components/search/full-text-search.en.md
                     - Heta graph search: core-components/search/heta-graph-search.en.md
                     - Heta query modes: core-components/search/heta-query-modes.en.md
+                    - Wiki agent search: core-components/search/wiki-agent-search.en.md
                 - Evaluation:
                     - Benchmark protocols: core-components/evaluation/benchmark-protocols.en.md
                     - BenchmarkRunner: core-components/evaluation/benchmark-runner.en.md
@@ -82,6 +84,9 @@ plugins:
                         - Embed chunks: core-components/steps/embed-chunks.en.md
                         - Index vectors: core-components/steps/index-vectors.en.md
                         - Index full text: core-components/steps/index-full-text.en.md
+                    - Heta Wiki procedure:
+                        - Build Wiki pages: core-components/steps/build-wiki-pages.en.md
+                        - Split Wiki pages: core-components/steps/split-wiki-pages.en.md
                     - Heta graph procedure:
                         - Merge chunks: core-components/steps/merge-chunks.en.md
                         - Rechunk documents: core-components/steps/rechunk-documents.en.md
@@ -130,6 +135,7 @@ nav:
           - Document parsers: core-components/parsers/document-parsers.zh.md
       - Procedures:
           - Knowledge procedures: core-components/procedures/knowledge-procedures.zh.md
+          - Heta Wiki procedure: core-components/procedures/heta-wiki-procedure.zh.md
       - Search:
           - Query protocols: core-components/search/query-protocols.zh.md
           - Vector search: core-components/search/vector-search.zh.md
@@ -137,6 +143,7 @@ nav:
           - Full-text search: core-components/search/full-text-search.zh.md
           - Heta graph search: core-components/search/heta-graph-search.zh.md
           - Heta query modes: core-components/search/heta-query-modes.zh.md
+          - Wiki agent search: core-components/search/wiki-agent-search.zh.md
       - Evaluation:
           - Benchmark protocols: core-components/evaluation/benchmark-protocols.zh.md
           - BenchmarkRunner: core-components/evaluation/benchmark-runner.zh.md
@@ -154,6 +161,9 @@ nav:
               - Embed chunks: core-components/steps/embed-chunks.zh.md
               - Index vectors: core-components/steps/index-vectors.zh.md
               - Index full text: core-components/steps/index-full-text.zh.md
+          - Heta Wiki procedure:
+              - Build Wiki pages: core-components/steps/build-wiki-pages.zh.md
+              - Split Wiki pages: core-components/steps/split-wiki-pages.zh.md
           - Heta graph procedure:
               - Merge chunks: core-components/steps/merge-chunks.zh.md
               - Rechunk documents: core-components/steps/rechunk-documents.zh.md

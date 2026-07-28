@@ -31,6 +31,11 @@ expanded_steps = procedure.steps()
 
 Recipe 和 builder 应该基于这些真实 steps 做组件校验、artifact 校验和执行调度。
 
+内置 procedure：
+
+- [`HetaWikiProcedure`](heta-wiki-procedure.zh.md)：构建 Wiki pages、Wiki chunks、向量索引和全文索引。
+- `HetaGraphProcedure`：抽取实体关系并构建或合并 Heta graph。
+
 ## HetaGraphProcedure
 
 `HetaGraphProcedure` 打包 `IndexVectors` 之后的 Heta-style graph build 流程。它覆盖的是 HetaDB-style 建图链路，不是基础向量检索链路。
