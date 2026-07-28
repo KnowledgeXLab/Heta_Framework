@@ -12,7 +12,13 @@ from heta_framework.common.extractors import (
     ExtractedDocument,
     ExtractionOptions,
 )
-from heta_framework.kb.parsing.types import ParsedDocument, ParsedPage, ParsedSource, make_document_id
+from heta_framework.kb.parsing.types import (
+    ParsedDocument,
+    ParsedPage,
+    ParsedSource,
+    ParsedTextContent,
+    make_document_id,
+)
 
 
 @dataclass(frozen=True)
@@ -66,6 +72,11 @@ class ExtractorDocumentParser:
             document_id=make_document_id(source.content_sha256),
             source=source,
             pages=pages_from_extracted_document(extracted),
+            original_content=(
+                ParsedTextContent(text=extracted.markdown, media_type="text/markdown")
+                if extracted.markdown.strip()
+                else None
+            ),
         )
 
 

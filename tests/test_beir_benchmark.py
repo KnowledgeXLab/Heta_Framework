@@ -121,6 +121,33 @@ def test_beir_retrieval_metrics_deduplicate_chunk_hits_by_document():
     asyncio.run(run())
 
 
+def test_beir_retrieval_metrics_follow_generated_artifact_origin():
+    case = _case()
+    response = QueryResponse(
+        mode="wiki_full_text_search",
+        results=(
+            QueryResult(
+                id="wiki_chunk_1",
+                text="generated Wiki evidence",
+                source={
+                    "object_key": "wiki/pages/1-paper-one.md",
+                    "origin": {
+                        "object_key": "raw/benchmarks/beir_scifact/test/D1/D1.txt"
+                    },
+                },
+            ),
+        ),
+    )
+
+    score = asyncio.run(BeirRetrievalMetric(metric="recall", k=10).evaluate(
+        case=case,
+        response=response,
+    ))
+
+    assert score.value == 0.5
+    assert score.metadata["matched_documents"] == ["D1"]
+
+
 def test_beir_download_extracts_official_zip_layout(tmp_path: Path, monkeypatch):
     archive_bytes = _beir_zip_bytes()
 

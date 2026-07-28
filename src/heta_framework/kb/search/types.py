@@ -99,6 +99,27 @@ class QueryTraceEvent:
 
 
 @dataclass(frozen=True)
+class QueryInsight:
+    """One self-contained claim grounded in agentic query evidence."""
+
+    text: str
+    evidence_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.text.strip() == "":
+            raise ValueError("text must not be empty")
+        normalized_ids = tuple(evidence_id.strip() for evidence_id in self.evidence_ids)
+        if not normalized_ids:
+            raise ValueError("evidence_ids must not be empty")
+        if any(evidence_id == "" for evidence_id in normalized_ids):
+            raise ValueError("evidence_ids must not contain empty values")
+        if len(normalized_ids) != len(set(normalized_ids)):
+            raise ValueError("evidence_ids must not contain duplicates")
+        object.__setattr__(self, "text", self.text.strip())
+        object.__setattr__(self, "evidence_ids", normalized_ids)
+
+
+@dataclass(frozen=True)
 class QueryResponse:
     """Response returned by a query engine."""
 
@@ -108,6 +129,7 @@ class QueryResponse:
     citations: tuple[QueryCitation, ...] = ()
     trace: tuple[QueryTraceEvent, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    insights: tuple[QueryInsight, ...] = ()
 
     def __post_init__(self) -> None:
         if self.mode.strip() == "":
@@ -117,6 +139,7 @@ class QueryResponse:
         object.__setattr__(self, "mode", self.mode.strip())
         object.__setattr__(self, "results", tuple(self.results))
         object.__setattr__(self, "answer", self.answer.strip() if self.answer else None)
+        object.__setattr__(self, "insights", tuple(self.insights))
         object.__setattr__(self, "citations", tuple(self.citations))
         object.__setattr__(self, "trace", tuple(self.trace))
         object.__setattr__(self, "metadata", dict(self.metadata))

@@ -127,6 +127,11 @@ def test_pdf_parser_satisfies_protocol_and_groups_pages():
     assert "Table:" in parsed.pages[0].text
     assert "Image: artifacts/images/figure.jpg" in parsed.pages[1].text
     assert "Image description: Figure description" in parsed.pages[1].text
+    assert parsed.original_content is not None
+    assert parsed.original_content.media_type == "text/markdown"
+    assert parsed.original_content.text == (
+        "Intro\n\n<table><tr><td>A</td></tr></table>\n\n![](images/figure.jpg)"
+    )
 
 
 def test_office_parser_uses_document_extractor():

@@ -23,6 +23,8 @@ class ParsedChunk:
     token_start: int
     token_end: int
     parent_chunk_ids: tuple[str, ...] = ()
+    heading_path: tuple[str, ...] = ()
+    origin_source: ParsedSource | None = None
 
     def __post_init__(self) -> None:
         if self.chunk_id.strip() == "":
@@ -39,14 +41,23 @@ class ParsedChunk:
             raise ValueError("token_start must not be negative")
         if self.token_end < self.token_start:
             raise ValueError("token_end must be greater than or equal to token_start")
-        normalized_parent_ids = tuple(parent_id for parent_id in self.parent_chunk_ids if parent_id.strip())
+        normalized_parent_ids = tuple(
+            parent_id for parent_id in self.parent_chunk_ids if parent_id.strip()
+        )
         if len(normalized_parent_ids) != len(self.parent_chunk_ids):
             raise ValueError("parent_chunk_ids must not contain empty values")
+        normalized_heading_path = tuple(heading.strip() for heading in self.heading_path)
+        if any(heading == "" for heading in normalized_heading_path):
+            raise ValueError("heading_path must not contain empty values")
         object.__setattr__(self, "parent_chunk_ids", normalized_parent_ids)
+        object.__setattr__(self, "heading_path", normalized_heading_path)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
-        return asdict(self)
+        data = asdict(self)
+        if self.origin_source is None:
+            data.pop("origin_source")
+        return data
 
     def to_json(self) -> str:
         """Serialize the chunk to compact JSON."""
@@ -69,6 +80,12 @@ class ParsedChunk:
             token_start=data["token_start"],
             token_end=data["token_end"],
             parent_chunk_ids=tuple(data.get("parent_chunk_ids", ())),
+            heading_path=tuple(data.get("heading_path", ())),
+            origin_source=(
+                ParsedSource(**data["origin_source"])
+                if data.get("origin_source") is not None
+                else None
+            ),
         )
 
     @classmethod

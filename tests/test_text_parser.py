@@ -37,6 +37,7 @@ def test_text_parser_parses_utf8_text():
     assert document.source == source
     assert document.pages[0].page_index == 0
     assert document.pages[0].text == "Heta parser\n第二行"
+    assert document.original_content is None
 
 
 def test_text_parser_parses_markdown_as_text():
@@ -54,6 +55,9 @@ def test_text_parser_parses_markdown_as_text():
     document = asyncio.run(run())
 
     assert document.pages[0].text == "# Title\n\n- item"
+    assert document.original_content is not None
+    assert document.original_content.text == "# Title\n\n- item"
+    assert document.original_content.media_type == "text/markdown"
 
 
 def test_text_parser_falls_back_to_configured_encoding():

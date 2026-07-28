@@ -143,12 +143,17 @@ def _matches_evidence(evidence: BenchmarkEvidence, result: QueryResult) -> bool:
 
 def _locator_matches(locator: Mapping[str, Any], result: QueryResult) -> bool:
     source = dict(result.source)
+    source_candidates = _source_candidates(result)
     for key, expected in locator.items():
         if key == "source_key":
-            actual = source.get("source_key", source.get("object_key"))
+            if any(_source_key(candidate) == expected for candidate in source_candidates):
+                continue
+            return False
         elif key == "source_key_prefix":
-            actual = str(source.get("source_key", source.get("object_key", "")))
-            if actual.startswith(str(expected)):
+            if any(
+                str(_source_key(candidate) or "").startswith(str(expected))
+                for candidate in source_candidates
+            ):
                 continue
             return False
         elif key == "chunk_id":
@@ -166,12 +171,15 @@ def _locator_matches(locator: Mapping[str, Any], result: QueryResult) -> bool:
 def _reference_matches(reference_id: str, result: QueryResult) -> bool:
     if reference_id == result.id:
         return True
-    source = dict(result.source)
-    return reference_id in {
-        str(source.get("document_id", "")),
-        str(source.get("source_key", "")),
-        str(source.get("object_key", "")),
-    }
+    return any(
+        reference_id
+        in {
+            str(source.get("document_id", "")),
+            str(source.get("source_key", "")),
+            str(source.get("object_key", "")),
+        }
+        for source in _source_candidates(result)
+    )
 
 
 def _text_matches(expected_text: str, result_text: str) -> bool:
@@ -222,19 +230,36 @@ def _beir_document_id(result: QueryResult) -> str | None:
         value = source.get(key) or result.metadata.get(key)
         if value is not None and str(value).strip():
             return str(value).strip()
-    source_key = source.get("source_key") or source.get("object_key")
-    if source_key is None:
-        return None
-    parts = [part for part in str(source_key).split("/") if part]
-    try:
-        index = parts.index("beir")
-    except ValueError:
-        index = -1
-    if index >= 0 and len(parts) > index + 2:
-        return parts[index + 2]
-    if len(parts) >= 5 and parts[0] == "raw" and parts[1] == "benchmarks":
-        return parts[4]
+    for candidate in _source_candidates(result):
+        source_key = _source_key(candidate)
+        if source_key is None:
+            continue
+        parts = [part for part in str(source_key).split("/") if part]
+        try:
+            index = parts.index("beir")
+        except ValueError:
+            index = -1
+        if index >= 0 and len(parts) > index + 2:
+            return parts[index + 2]
+        if len(parts) >= 5 and parts[0] == "raw" and parts[1] == "benchmarks":
+            return parts[4]
     return None
+
+
+def _source_candidates(result: QueryResult) -> tuple[Mapping[str, Any], ...]:
+    source = dict(result.source)
+    candidates: list[Mapping[str, Any]] = [source]
+    origin = source.get("origin")
+    if isinstance(origin, Mapping):
+        candidates.append(origin)
+    origin_source_key = result.metadata.get("origin_source_key")
+    if origin_source_key is not None:
+        candidates.append({"object_key": origin_source_key})
+    return tuple(candidates)
+
+
+def _source_key(source: Mapping[str, Any]) -> object | None:
+    return source.get("source_key") or source.get("object_key")
 
 
 def _score_beir_metric(

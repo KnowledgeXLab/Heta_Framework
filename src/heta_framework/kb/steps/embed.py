@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 from heta_framework.common.models import EmbeddingRequest
 from heta_framework.common.models.protocols import EmbeddingModelProtocol
@@ -15,22 +15,72 @@ from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, model_ref, store_ref
 
 
+EmbedChunksPreset = Literal["default", "wiki"]
+
+
+@dataclass(frozen=True)
+class _EmbedChunksPreset:
+    embeddings_prefix: str
+    chunk_keys_artifact: str
+    chunk_embedding_keys_artifact: str
+    result_artifact: str
+
+
+_EMBED_CHUNKS_PRESETS: dict[EmbedChunksPreset, _EmbedChunksPreset] = {
+    "default": _EmbedChunksPreset(
+        embeddings_prefix="embeddings",
+        chunk_keys_artifact="chunk_keys",
+        chunk_embedding_keys_artifact="chunk_embedding_keys",
+        result_artifact="embed_chunks_result",
+    ),
+    "wiki": _EmbedChunksPreset(
+        embeddings_prefix="wiki_embeddings",
+        chunk_keys_artifact="wiki_chunk_keys",
+        chunk_embedding_keys_artifact="wiki_chunk_embedding_keys",
+        result_artifact="embed_wiki_chunks_result",
+    ),
+}
+
+
 @dataclass(frozen=True)
 class EmbedChunksConfig:
     """Configuration for EmbedChunks."""
 
-    embeddings_prefix: str = "embeddings"
-    batch_size: int = 64
+    embeddings_prefix: str | None = None
+    batch_size: int = 10
     object_store: str | None = None
     embedding_model: str | None = None
-    chunk_keys_artifact: str = "chunk_keys"
+    chunk_keys_artifact: str | None = None
+    preset: EmbedChunksPreset = "default"
+    chunk_embedding_keys_artifact: str | None = None
+    result_artifact: str | None = None
 
     def __post_init__(self) -> None:
+        preset = _embed_chunks_preset(self.preset)
+        if self.embeddings_prefix is None:
+            object.__setattr__(self, "embeddings_prefix", preset.embeddings_prefix)
+        _set_preset_value(
+            self,
+            "chunk_keys_artifact",
+            self.chunk_keys_artifact,
+            preset.chunk_keys_artifact,
+            allow_custom=self.preset == "default",
+        )
+        _set_preset_value(
+            self,
+            "chunk_embedding_keys_artifact",
+            self.chunk_embedding_keys_artifact,
+            preset.chunk_embedding_keys_artifact,
+        )
+        _set_preset_value(
+            self,
+            "result_artifact",
+            self.result_artifact,
+            preset.result_artifact,
+        )
         validate_object_prefix(self.embeddings_prefix)
         if self.batch_size <= 0:
             raise ValueError("batch_size must be greater than zero")
-        if self.chunk_keys_artifact.strip() == "":
-            raise ValueError("chunk_keys_artifact must not be empty")
 
 
 @dataclass(frozen=True)
@@ -68,7 +118,12 @@ class EmbedChunks:
     def capabilities(self) -> StepCapabilities:
         """Return artifacts produced by this step."""
         return StepCapabilities(
-            artifacts=frozenset({"embed_chunks_result", "chunk_embedding_keys"})
+            artifacts=frozenset(
+                {
+                    self.config.result_artifact,
+                    self.config.chunk_embedding_keys_artifact,
+                }
+            )
         )
 
     def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
@@ -76,7 +131,7 @@ class EmbedChunks:
         return StepCleanupPlan(
             object_key_targets(
                 artifacts,
-                "chunk_embedding_keys",
+                self.config.chunk_embedding_keys_artifact,
                 component=store_ref("objects", self.config.object_store).key,
             )
         )
@@ -103,7 +158,9 @@ class EmbedChunks:
                 if embedding.document_id != chunk.document_id:
                     raise ValueError(f"embedding document_id mismatch for chunk: {chunk.chunk_id}")
                 if embedding.dimension <= 0:
-                    raise ValueError(f"embedding dimension must be positive for chunk: {chunk.chunk_id}")
+                    raise ValueError(
+                        f"embedding dimension must be positive for chunk: {chunk.chunk_id}"
+                    )
                 dimension = embedding.dimension
                 embedding_keys.append(key)
                 continue
@@ -121,7 +178,9 @@ class EmbedChunks:
                 raise ValueError("embedding result count must match chunk batch size")
             for chunk, vector in zip(batch, result.vectors, strict=True):
                 if not vector:
-                    raise ValueError(f"embedding vector must not be empty for chunk: {chunk.chunk_id}")
+                    raise ValueError(
+                        f"embedding vector must not be empty for chunk: {chunk.chunk_id}"
+                    )
                 dimension = len(vector)
                 embedding = ChunkEmbedding(
                     chunk_id=chunk.chunk_id,
@@ -141,8 +200,36 @@ class EmbedChunks:
             model_name=model_name,
             dimension=dimension,
         )
-        context.set_artifact("embed_chunks_result", output)
-        context.set_artifact("chunk_embedding_keys", output.embedding_keys)
+        context.set_artifact(self.config.result_artifact, output)
+        context.set_artifact(self.config.chunk_embedding_keys_artifact, output.embedding_keys)
+
+
+def _embed_chunks_preset(preset: str) -> _EmbedChunksPreset:
+    try:
+        return _EMBED_CHUNKS_PRESETS[preset]  # type: ignore[index]
+    except KeyError as exc:
+        allowed = ", ".join(sorted(_EMBED_CHUNKS_PRESETS))
+        raise ValueError(f"preset must be one of: {allowed}") from exc
+
+
+def _set_preset_value(
+    config: object,
+    field_name: str,
+    value: str | None,
+    expected: str,
+    *,
+    allow_custom: bool = False,
+) -> None:
+    if value is None:
+        object.__setattr__(config, field_name, expected)
+        return
+    if value.strip() == "":
+        raise ValueError(f"{field_name} must not be empty")
+    if value != expected and not allow_custom:
+        raise ValueError(
+            f"{field_name} must be {expected!r} for preset {getattr(config, 'preset')!r}"
+        )
+    object.__setattr__(config, field_name, value)
 
 
 def _require_object_store(component: object) -> ObjectStoreProtocol:

@@ -19,6 +19,9 @@ def chunk_source(
     token_start: object | None = None,
     token_end: object | None = None,
     evidence_count: object | None = None,
+    origin_object_key: object | None = None,
+    origin_object_name: object | None = None,
+    origin_object_type: object | None = None,
 ) -> dict[str, Any]:
     """Return the canonical source shape used by built-in query engines."""
     source: dict[str, Any] = {}
@@ -34,6 +37,12 @@ def chunk_source(
     _set_if_present(source, "token_start", token_start)
     _set_if_present(source, "token_end", token_end)
     _set_if_present(source, "evidence_count", evidence_count)
+    origin: dict[str, Any] = {}
+    _set_if_present(origin, "object_key", origin_object_key)
+    _set_if_present(origin, "object_name", origin_object_name)
+    _set_if_present(origin, "object_type", origin_object_type)
+    if origin:
+        source["origin"] = origin
     return source
 
 
@@ -49,6 +58,9 @@ def chunk_source_from_metadata(metadata: Mapping[str, object], *, chunk_id: str)
         chunk_index=metadata.get("chunk_index"),
         token_start=metadata.get("token_start"),
         token_end=metadata.get("token_end"),
+        origin_object_key=metadata.get("origin_source_key"),
+        origin_object_name=metadata.get("origin_source_name"),
+        origin_object_type=metadata.get("origin_source_file_type"),
     )
 
 

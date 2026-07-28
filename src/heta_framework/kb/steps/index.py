@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Mapping
+from dataclasses import dataclass
+from typing import Any, Literal, Mapping
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.vector import (
@@ -18,6 +18,9 @@ from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, store_ref
 
 
+IndexVectorsPreset = Literal["default", "wiki"]
+
+
 @dataclass(frozen=True)
 class ChunkVectorCollections:
     """Vector collection names used by chunk indexing."""
@@ -30,26 +33,95 @@ class ChunkVectorCollections:
 
 
 @dataclass(frozen=True)
+class _IndexVectorsPreset:
+    collection: str
+    chunk_keys_artifact: str
+    chunk_embedding_keys_artifact: str
+    result_artifact: str
+    query_mode: str
+    asset_kind: str
+
+
+_INDEX_VECTORS_PRESETS: dict[IndexVectorsPreset, _IndexVectorsPreset] = {
+    "default": _IndexVectorsPreset(
+        collection="chunks",
+        chunk_keys_artifact="chunk_keys",
+        chunk_embedding_keys_artifact="chunk_embedding_keys",
+        result_artifact="index_vectors_result",
+        query_mode="vector_search",
+        asset_kind="chunk_vector_index",
+    ),
+    "wiki": _IndexVectorsPreset(
+        collection="wiki_chunks",
+        chunk_keys_artifact="wiki_chunk_keys",
+        chunk_embedding_keys_artifact="wiki_chunk_embedding_keys",
+        result_artifact="index_wiki_vectors_result",
+        query_mode="wiki_vector_search",
+        asset_kind="wiki_chunk_vector_index",
+    ),
+}
+
+
+@dataclass(frozen=True)
 class IndexVectorsConfig:
     """Configuration for IndexVectors."""
 
-    collection_names: ChunkVectorCollections = field(default_factory=ChunkVectorCollections)
+    collection_names: ChunkVectorCollections | None = None
     metric: str = "cosine"
     batch_size: int = 128
     object_store: str | None = None
     vector_store: str | None = None
-    chunk_keys_artifact: str = "chunk_keys"
-    chunk_embedding_keys_artifact: str = "chunk_embedding_keys"
+    chunk_keys_artifact: str | None = None
+    chunk_embedding_keys_artifact: str | None = None
+    preset: IndexVectorsPreset = "default"
+    result_artifact: str | None = None
+    query_mode: str | None = None
+    asset_kind: str | None = None
 
     def __post_init__(self) -> None:
+        preset = _index_vectors_preset(self.preset)
+        if self.collection_names is None:
+            object.__setattr__(
+                self,
+                "collection_names",
+                ChunkVectorCollections(chunks=preset.collection),
+            )
+        _set_preset_value(
+            self,
+            "chunk_keys_artifact",
+            self.chunk_keys_artifact,
+            preset.chunk_keys_artifact,
+            allow_custom=self.preset == "default",
+        )
+        _set_preset_value(
+            self,
+            "chunk_embedding_keys_artifact",
+            self.chunk_embedding_keys_artifact,
+            preset.chunk_embedding_keys_artifact,
+            allow_custom=self.preset == "default",
+        )
+        _set_preset_value(
+            self,
+            "result_artifact",
+            self.result_artifact,
+            preset.result_artifact,
+        )
+        _set_preset_value(
+            self,
+            "query_mode",
+            self.query_mode,
+            preset.query_mode,
+        )
+        _set_preset_value(
+            self,
+            "asset_kind",
+            self.asset_kind,
+            preset.asset_kind,
+        )
         if self.metric not in {"cosine", "dot", "l2"}:
             raise ValueError("metric must be one of: cosine, dot, l2")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be greater than zero")
-        if self.chunk_keys_artifact.strip() == "":
-            raise ValueError("chunk_keys_artifact must not be empty")
-        if self.chunk_embedding_keys_artifact.strip() == "":
-            raise ValueError("chunk_embedding_keys_artifact must not be empty")
 
 
 @dataclass(frozen=True)
@@ -92,11 +164,11 @@ class IndexVectors:
         """Return artifacts and query modes produced by this step."""
         vector_store_ref = store_ref("vector", self.config.vector_store)
         return StepCapabilities(
-            artifacts=frozenset({"index_vectors_result"}),
-            queries=frozenset({"vector_search"}),
+            artifacts=frozenset({self.config.result_artifact}),
+            queries=frozenset({self.config.query_mode}),
             search_assets=(
                 SearchAsset(
-                    kind="chunk_vector_index",
+                    kind=self.config.asset_kind,
                     name=self.config.collection_names.chunks,
                     store=vector_store_ref.key,
                     metadata={
@@ -165,7 +237,9 @@ class IndexVectors:
                         "token_start": chunk.token_start,
                         "token_end": chunk.token_end,
                         "parent_chunk_ids": list(chunk.parent_chunk_ids),
+                        "heading_path": " > ".join(chunk.heading_path),
                         "embedding_model": embedding.model_name,
+                        **_origin_source_metadata(chunk),
                     },
                 )
             )
@@ -189,7 +263,46 @@ class IndexVectors:
             indexed_count=len(records),
             dimension=dimension,
         )
-        context.set_artifact("index_vectors_result", output)
+        context.set_artifact(self.config.result_artifact, output)
+
+
+def _origin_source_metadata(chunk: ParsedChunk) -> dict[str, str]:
+    if chunk.origin_source is None:
+        return {}
+    return {
+        "origin_source_key": chunk.origin_source.key,
+        "origin_source_name": chunk.origin_source.name,
+        "origin_source_file_type": chunk.origin_source.file_type,
+        "origin_source_content_sha256": chunk.origin_source.content_sha256,
+    }
+
+
+def _index_vectors_preset(preset: str) -> _IndexVectorsPreset:
+    try:
+        return _INDEX_VECTORS_PRESETS[preset]  # type: ignore[index]
+    except KeyError as exc:
+        allowed = ", ".join(sorted(_INDEX_VECTORS_PRESETS))
+        raise ValueError(f"preset must be one of: {allowed}") from exc
+
+
+def _set_preset_value(
+    config: object,
+    field_name: str,
+    value: str | None,
+    expected: str,
+    *,
+    allow_custom: bool = False,
+) -> None:
+    if value is None:
+        object.__setattr__(config, field_name, expected)
+        return
+    if value.strip() == "":
+        raise ValueError(f"{field_name} must not be empty")
+    if value != expected and not allow_custom:
+        raise ValueError(
+            f"{field_name} must be {expected!r} for preset {getattr(config, 'preset')!r}"
+        )
+    object.__setattr__(config, field_name, value)
 
 
 def _require_object_store(component: object) -> ObjectStoreProtocol:

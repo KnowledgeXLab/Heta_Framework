@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -45,12 +46,38 @@ class ParsedPage:
 
 
 @dataclass(frozen=True)
+class ParsedTextContent:
+    """Optional document-level textual content preserved by a parser."""
+
+    text: str
+    media_type: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.text, str):
+            raise TypeError("text must be a string")
+        if self.text.strip() == "":
+            raise ValueError("text must not be empty")
+        if self.media_type.strip() == "":
+            raise ValueError("media_type must not be empty")
+
+    def to_dict(self) -> dict[str, str]:
+        """Return a JSON-serializable dictionary."""
+        return {"text": self.text, "media_type": self.media_type}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "ParsedTextContent":
+        """Create parsed text content from a dictionary."""
+        return cls(text=data["text"], media_type=data["media_type"])
+
+
+@dataclass(frozen=True)
 class ParsedDocument:
     """Unified parser output consumed by downstream KB steps."""
 
     document_id: str
     source: ParsedSource
     pages: list[ParsedPage]
+    original_content: ParsedTextContent | None = None
 
     def __post_init__(self) -> None:
         if self.document_id.strip() == "":
@@ -76,10 +103,16 @@ class ParsedDocument:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ParsedDocument":
         """Create a parsed document from a dictionary."""
+        raw_original_content = data.get("original_content")
         return cls(
             document_id=data["document_id"],
             source=ParsedSource(**data["source"]),
             pages=[ParsedPage(**page) for page in data["pages"]],
+            original_content=(
+                ParsedTextContent.from_dict(raw_original_content)
+                if raw_original_content is not None
+                else None
+            ),
         )
 
     @classmethod

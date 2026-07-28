@@ -120,6 +120,31 @@ def test_parsed_chunk_accepts_parent_chunk_ids():
     assert ParsedChunk.from_json(chunk.to_json_bytes()).parent_chunk_ids == ("chunk_a",)
 
 
+def test_parsed_chunk_reads_v0_1_0_json_without_wiki_provenance():
+    chunk = ParsedChunk(
+        chunk_id="chunk_legacy",
+        document_id="doc_legacy",
+        source=ParsedSource(
+            key="raw/legacy.txt",
+            name="legacy.txt",
+            file_type="txt",
+            content_sha256="a" * 64,
+        ),
+        page_index=0,
+        chunk_index=0,
+        text="legacy",
+        token_start=0,
+        token_end=6,
+    )
+    legacy_payload = chunk.to_dict()
+    legacy_payload.pop("heading_path")
+
+    restored = ParsedChunk.from_dict(legacy_payload)
+
+    assert restored.heading_path == ()
+    assert restored.origin_source is None
+
+
 def test_merge_chunks_creates_merge_collection_and_outputs_active_keys(tmp_path):
     object_store = LocalObjectStore(tmp_path)
     vector_store = InMemoryVectorStore()
