@@ -21,7 +21,7 @@ class QueryEngineRegistry:
             self.register(engine)
 
     @classmethod
-    def defaults(cls) -> "QueryEngineRegistry":
+    def defaults(cls) -> QueryEngineRegistry:
         """Return the built-in query engine registry."""
         from heta_framework.kb.search.engines import (
             AgenticQueryEngine,
@@ -69,7 +69,7 @@ class QueryEngineRegistry:
         engine: QueryEngineProtocol,
         *,
         replace: bool = False,
-    ) -> "QueryEngineRegistry":
+    ) -> QueryEngineRegistry:
         """Register one query engine."""
         if not isinstance(engine, QueryEngineProtocol):
             raise TypeError("engine must satisfy QueryEngineProtocol")
@@ -104,7 +104,7 @@ class QueryEngineRegistry:
 
     def available_modes_for(
         self,
-        recipe: "KnowledgeRecipe",
+        recipe: KnowledgeRecipe,
         assets: SearchAssetCollection,
     ) -> frozenset[str]:
         """Return registered modes whose asset and component requirements are satisfied."""
@@ -126,7 +126,7 @@ def _normalize_mode(mode: str) -> str:
 
 
 def _missing_components(
-    recipe: "KnowledgeRecipe",
+    recipe: KnowledgeRecipe,
     engine: QueryEngineProtocol,
 ) -> tuple[object, ...]:
     refs = getattr(engine, "required_components", frozenset())
@@ -139,7 +139,7 @@ def _is_discoverable(engine: QueryEngineProtocol) -> bool:
 
 def _is_available_for_recipe(
     engine: QueryEngineProtocol,
-    recipe: "KnowledgeRecipe",
+    recipe: KnowledgeRecipe,
 ) -> bool:
     check = getattr(engine, "is_available_for", None)
     return bool(check(recipe)) if callable(check) else True

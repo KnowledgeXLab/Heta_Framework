@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from heta_framework.common.models import EmbeddingRequest
 from heta_framework.common.models.protocols import EmbeddingModelProtocol
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
-from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
 from heta_framework.kb.chunking import ChunkEmbedding, ParsedChunk
+from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, model_ref, store_ref
-
 
 EmbedChunksPreset = Literal["default", "wiki"]
 
@@ -227,7 +227,7 @@ def _set_preset_value(
         raise ValueError(f"{field_name} must not be empty")
     if value != expected and not allow_custom:
         raise ValueError(
-            f"{field_name} must be {expected!r} for preset {getattr(config, 'preset')!r}"
+            f"{field_name} must be {expected!r} for preset {config.preset!r}"
         )
     object.__setattr__(config, field_name, value)
 

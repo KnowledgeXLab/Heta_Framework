@@ -13,11 +13,11 @@ from heta_framework.kb.search.engines._language import (
     optional_language_model_from_context,
     should_generate_answer,
 )
-from heta_framework.kb.search.engines.answer_prompts import vector_answer_prompt
 from heta_framework.kb.search.engines._provenance import (
     chunk_source_from_metadata,
     citations_from_results,
 )
+from heta_framework.kb.search.engines.answer_prompts import vector_answer_prompt
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 from heta_framework.kb.steps.types import ComponentRef, model_ref, store_ref

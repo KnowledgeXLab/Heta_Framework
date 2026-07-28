@@ -280,10 +280,10 @@ def test_agentic_query_searches_reads_and_synthesizes_grounded_answer(tmp_path):
         await object_store.put(
             "wiki/pages/1-plant-cell-metabolism.md",
             (
-                "# Plant Cell Metabolism\n\n"
-                "## Summary\n\nPlant cells convert light energy.\n\n"
-                "## Content\n\nChloroplasts produce ATP and NADPH."
-            ).encode(),
+                b"# Plant Cell Metabolism\n\n"
+                b"## Summary\n\nPlant cells convert light energy.\n\n"
+                b"## Content\n\nChloroplasts produce ATP and NADPH."
+            ),
         )
         context = await _context(
             model=model,

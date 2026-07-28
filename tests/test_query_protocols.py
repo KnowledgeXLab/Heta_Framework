@@ -6,9 +6,23 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from heta_framework.kb import (  # noqa: E402
+from heta_framework.common.models import EmbeddingRequest, EmbeddingResult  # noqa: E402
+from heta_framework.common.stores import (  # noqa: E402
+    InMemoryTextIndexStore,
+    InMemoryVectorStore,
+    LocalObjectStore,
+    SQLStore,
+    TextIndexConfig,
+    TextIndexRecord,
+    VectorCollectionConfig,
+    VectorRecord,
+)
+from heta_framework.kb import (  # noqa: E402  # noqa: E402
+    KnowledgeBase,
     KnowledgeBaseBuilder,
+    KnowledgeModels,
     KnowledgeRecipe,
+    KnowledgeStores,
     QueryCitation,
     QueryContext,
     QueryEngineRegistry,
@@ -24,26 +38,14 @@ from heta_framework.kb import (  # noqa: E402
     SearchAsset,
     SearchAssetCollection,
     SearchAssetRef,
-    StepCleanupPlan,
     StepCapabilities,
+    StepCleanupPlan,
     StepRequirements,
     make_query_tool_definition,
     missing_query_tool_assets,
     missing_query_tool_components,
     model_ref,
 )
-from heta_framework.common.models import EmbeddingRequest, EmbeddingResult  # noqa: E402
-from heta_framework.common.stores import (  # noqa: E402
-    InMemoryTextIndexStore,
-    InMemoryVectorStore,
-    LocalObjectStore,
-    SQLStore,
-    TextIndexConfig,
-    TextIndexRecord,
-    VectorCollectionConfig,
-    VectorRecord,
-)
-from heta_framework.kb import KnowledgeBase, KnowledgeModels, KnowledgeStores  # noqa: E402
 
 
 class FakeSearchStep:
@@ -350,7 +352,8 @@ def test_query_tool_context_can_delegate_and_record_evidence():
         assert ledger.citations == result.citations
         assert ledger.total_content_chars == len(result.content)
         assert "[evidence_001_search_fake] search_fake" in ledger.to_context_text()
-        assert tool_context.require_asset(SearchAssetRef(kind="chunk_vector_index")).name == "chunks"
+        vector_asset = tool_context.require_asset(SearchAssetRef(kind="chunk_vector_index"))
+        assert vector_asset.name == "chunks"
 
     asyncio.run(run())
 

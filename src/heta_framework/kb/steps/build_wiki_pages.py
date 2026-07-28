@@ -6,9 +6,10 @@ import json
 import posixpath
 import re
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from heta_framework.common.models import ModelOptions, ModelRequest
 from heta_framework.common.models.protocols import LanguageModelProtocol

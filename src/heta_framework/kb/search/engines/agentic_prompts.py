@@ -6,7 +6,6 @@ import json
 
 from heta_framework.kb.search.tools import QueryEvidenceRecord
 
-
 AGENTIC_RETRIEVAL_SYSTEM_PROMPT = """You are a retrieval planner for a private wiki.
 
 Your only task in this phase is to gather enough evidence to answer the user's question.

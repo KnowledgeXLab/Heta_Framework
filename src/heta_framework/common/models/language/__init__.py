@@ -16,6 +16,7 @@ from heta_framework.common.models.language.types import (
     ModelRequest,
     ModelResult,
     TextPart,
+    TokenUsage,
     ToolCall,
     ToolCallingModelRequest,
     ToolCallingModelResult,
@@ -23,7 +24,6 @@ from heta_framework.common.models.language.types import (
     ToolDefinition,
     ToolMessage,
     ToolMessageRole,
-    TokenUsage,
 )
 
 __all__ = [

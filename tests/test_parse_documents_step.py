@@ -24,7 +24,6 @@ from heta_framework.kb.parsing import (  # noqa: E402
 )
 from heta_framework.kb.steps import ParseDocuments, ParseDocumentsConfig
 
-
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
     b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
@@ -92,7 +91,9 @@ def test_parse_documents_declares_requirements_and_capabilities():
         "stores.objects",
         "parsers.documents",
     }
-    assert step.capabilities.artifacts == frozenset({"parse_documents_result", "parsed_document_keys"})
+    assert step.capabilities.artifacts == frozenset(
+        {"parse_documents_result", "parsed_document_keys"}
+    )
 
 
 def test_parse_documents_writes_parsed_documents(tmp_path):

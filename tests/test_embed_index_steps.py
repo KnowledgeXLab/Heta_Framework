@@ -11,7 +11,11 @@ from heta_framework.common.stores import InMemoryVectorStore, LocalObjectStore  
 from heta_framework.common.stores.vector import VectorQuery  # noqa: E402
 from heta_framework.kb.chunking import ChunkEmbedding, ParsedChunk  # noqa: E402
 from heta_framework.kb.parsing import DocumentParserRegistry, ParsedSource, TextParser  # noqa: E402
-from heta_framework.kb.search import QueryEngineRegistry, SearchAsset, SearchAssetCollection  # noqa: E402
+from heta_framework.kb.search import (  # noqa: E402
+    QueryEngineRegistry,
+    SearchAsset,
+    SearchAssetCollection,
+)
 from heta_framework.kb.steps import (  # noqa: E402
     ChunkVectorCollections,
     EmbedChunks,

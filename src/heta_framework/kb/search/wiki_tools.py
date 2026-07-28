@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Any, Mapping
+from typing import Any
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_key

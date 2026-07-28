@@ -1,6 +1,5 @@
 """Parser protocols and data types for Heta knowledge bases."""
 
-from heta_framework.kb.parsing.protocols import DocumentParserProtocol
 from heta_framework.kb.parsing.html import (
     BasicHtmlExtractor,
     HtmlParser,
@@ -9,6 +8,7 @@ from heta_framework.kb.parsing.html import (
 from heta_framework.kb.parsing.image import ImageParser, ImageParserConfig
 from heta_framework.kb.parsing.office import OfficeParser, OfficeParserConfig
 from heta_framework.kb.parsing.pdf import PdfParser, PdfParserConfig
+from heta_framework.kb.parsing.protocols import DocumentParserProtocol
 from heta_framework.kb.parsing.registry import DocumentParserRegistry
 from heta_framework.kb.parsing.sheet import SheetParser, SheetParserConfig
 from heta_framework.kb.parsing.text import TextParser, TextParserConfig

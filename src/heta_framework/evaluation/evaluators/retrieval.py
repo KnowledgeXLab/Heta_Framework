@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import log2
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from heta_framework.evaluation.protocols import BenchmarkEvaluatorProtocol
 from heta_framework.evaluation.types import BenchmarkCase, BenchmarkEvidence, EvaluationScore

@@ -24,6 +24,7 @@ from heta_framework.common.models.language import (
     ModelResponseError,
     ModelResult,
     TextPart,
+    TokenUsage,
     ToolCall,
     ToolCallingLanguageModel,
     ToolCallingModelRequest,
@@ -32,7 +33,6 @@ from heta_framework.common.models.language import (
     ToolDefinition,
     ToolMessage,
     ToolMessageRole,
-    TokenUsage,
 )
 from heta_framework.common.models.protocols import (
     EmbeddingModelProtocol,

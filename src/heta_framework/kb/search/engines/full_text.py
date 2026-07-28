@@ -115,10 +115,10 @@ async def _generate_answer(
 
 
 def _hit_to_result(hit: object, *, asset: SearchAsset, retrieval_method: str) -> QueryResult:
-    hit_id = getattr(hit, "id")
-    hit_text = getattr(hit, "text")
-    score = getattr(hit, "score")
-    metadata = dict(getattr(hit, "metadata"))
+    hit_id = hit.id
+    hit_text = hit.text
+    score = hit.score
+    metadata = dict(hit.metadata)
     source = chunk_source(
         document_id=metadata.get("document_id"),
         object_key=metadata.get("source_key"),

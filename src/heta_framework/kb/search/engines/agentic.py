@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any
 
 from heta_framework.common.models import (
     EmbeddingModelProtocol,
@@ -129,7 +130,7 @@ class AgenticQueryEngine:
             {*tool_components, model_ref("language", self.language_model)}
         )
 
-    def is_available_for(self, recipe: "KnowledgeRecipe") -> bool:
+    def is_available_for(self, recipe: KnowledgeRecipe) -> bool:
         """Return whether the recipe provides model capabilities used by the tools."""
         try:
             component = recipe.get_component(model_ref("language", self.language_model))
@@ -488,7 +489,7 @@ async def _synthesize_answer(
     max_attempts: int,
     max_output_tokens: int,
     query_mode: str,
-    usage: "_UsageAccumulator",
+    usage: _UsageAccumulator,
 ) -> tuple[
     str,
     tuple[QueryInsight, ...],

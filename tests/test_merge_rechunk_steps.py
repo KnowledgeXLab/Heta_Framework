@@ -12,8 +12,11 @@ from heta_framework.common.models import (  # noqa: E402
     ModelRequest,
     ModelResult,
 )
-from heta_framework.common.stores import InMemoryVectorStore, LocalObjectStore  # noqa: E402
-from heta_framework.common.stores import SQLStore  # noqa: E402
+from heta_framework.common.stores import (  # noqa: E402
+    InMemoryVectorStore,
+    LocalObjectStore,
+    SQLStore,  # noqa: E402
+)
 from heta_framework.kb.chunking import ParsedChunk  # noqa: E402
 from heta_framework.kb.parsing import (  # noqa: E402
     DocumentParserRegistry,
@@ -234,12 +237,10 @@ def test_merge_chunks_can_merge_multiple_candidates_in_one_llm_call(tmp_path):
             await object_store.put(
                 embedding_key,
                 (
-                    (
-                        '{"chunk_id":"%s","document_id":"doc_1","model_name":"fake",'
-                        '"vector":[1.0,1.0,0.1],"dimension":3}'
-                    )
-                    % chunk.chunk_id
-                ).encode("utf-8"),
+                    f'{{"chunk_id":"{chunk.chunk_id}",'
+                    '"document_id":"doc_1","model_name":"fake",'
+                    '"vector":[1.0,1.0,0.1],"dimension":3}'
+                ).encode(),
             )
             chunk_keys.append(chunk_key)
             embedding_keys.append(embedding_key)
