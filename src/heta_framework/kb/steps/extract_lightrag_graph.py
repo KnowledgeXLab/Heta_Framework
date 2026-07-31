@@ -5,16 +5,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import html
-import importlib.util
 import json
 import re
-import sys
 import time
-import types
 from collections import Counter, defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Literal
 
 from heta_framework.common.models import ModelOptions, ModelRequest
@@ -24,7 +20,7 @@ from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
 from heta_framework.kb.chunking import ParsedChunk
 from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
-from heta_framework.kb.graphing.prompts import GRAPH_SUMMARY_PROMPT
+from heta_framework.kb.graphing.prompts import GRAPH_SUMMARY_PROMPT, LIGHTRAG_PROMPTS
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, model_ref, store_ref
 
@@ -995,33 +991,7 @@ def _lightrag_prompts() -> Mapping[str, Any]:
 
 
 def _load_lightrag_prompts() -> Mapping[str, Any]:
-    try:
-        from lightrag.prompt import PROMPTS  # type: ignore
-
-        return PROMPTS
-    except Exception:
-        pass
-
-    repo_root = Path(__file__).resolve().parents[5]
-    prompt_path = repo_root / "LightRAG" / "lightrag" / "prompt.py"
-    if not prompt_path.exists():
-        raise RuntimeError(
-            "LightRAG prompts are required for ExtractLightRAGGraph but could not be found"
-        )
-    spec = importlib.util.spec_from_file_location("_heta_lightrag_prompt", prompt_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"could not load LightRAG prompt module from {prompt_path}")
-    module = importlib.util.module_from_spec(spec)
-    if "yaml" not in sys.modules:
-        yaml_stub = types.ModuleType("yaml")
-        yaml_stub.YAMLError = ValueError
-        yaml_stub.safe_load = lambda content: None
-        sys.modules["yaml"] = yaml_stub
-    spec.loader.exec_module(module)
-    prompts = getattr(module, "PROMPTS", None)
-    if not isinstance(prompts, dict):
-        raise RuntimeError("LightRAG prompt module does not expose PROMPTS")
-    return prompts
+    return LIGHTRAG_PROMPTS
 
 
 def _require_object_store(component: object) -> ObjectStoreProtocol:

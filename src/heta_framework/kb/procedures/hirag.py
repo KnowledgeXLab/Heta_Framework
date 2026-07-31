@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any, Mapping
 
 from heta_framework.kb.steps import (
+    AdaptUniversalGraphForHiRAG,
+    AdaptUniversalGraphForHiRAGConfig,
     BuildHiRAGGraph,
     BuildHiRAGGraphConfig,
-    ExtractHiRAGBaseGraph,
-    ExtractHiRAGBaseGraphConfig,
+    ConstrainGraphByOntology,
+    ConstrainGraphByOntologyConfig,
+    ExtractUniversalGraph,
+    ExtractUniversalGraphConfig,
     HiRAGHierarchicalAggregation,
     HiRAGHierarchicalAggregationConfig,
     HiRAGCommunity,
@@ -59,6 +64,8 @@ class HiRAGProcedure:
     max_token_for_community_report: int = 12500
     community_single_one: bool = False
     response_type: str = "Multiple Paragraphs"
+    schema_constraint_enabled: bool = False
+    ontology_schema: Mapping[str, Any] = field(default_factory=dict)
 
     raw_prefix: str = "raw"
     parsed_prefix: str = "parsed"
@@ -66,6 +73,8 @@ class HiRAGProcedure:
     chunk_keys_artifact: str = "chunk_keys"
     graph_node_keys_artifact: str = "hi_rag_graph_node_keys"
     graph_edge_keys_artifact: str = "hi_rag_graph_edge_keys"
+    entity_keys_artifact: str = "hi_rag_universal_entity_keys"
+    relation_keys_artifact: str = "hi_rag_universal_relation_keys"
     chunks_artifact: str = "hi_rag_chunks"
     community_schema_artifact: str = "hi_rag_community_schema"
     community_reports_artifact: str = "hi_rag_community_reports"
@@ -98,7 +107,19 @@ class HiRAGProcedure:
     def steps(self) -> tuple[KnowledgeStepProtocol, ...]:
         if not self.hierarchical_mode_enabled:
             raise ValueError("HiRAGProcedure MVP requires hierarchical mode to be enabled")
-        return (
+        constrained_entity_keys_artifact = "hi_rag_ontology_entity_keys"
+        constrained_relation_keys_artifact = "hi_rag_ontology_relation_keys"
+        entity_input = (
+            constrained_entity_keys_artifact
+            if self.schema_constraint_enabled
+            else self.entity_keys_artifact
+        )
+        relation_input = (
+            constrained_relation_keys_artifact
+            if self.schema_constraint_enabled
+            else self.relation_keys_artifact
+        )
+        steps: list[KnowledgeStepProtocol] = [
             ParseDocuments(
                 ParseDocumentsConfig(
                     raw_prefix=self.raw_prefix,
@@ -116,89 +137,128 @@ class HiRAGProcedure:
                     object_store=self.object_store,
                 )
             ),
-            ExtractHiRAGBaseGraph(
-                ExtractHiRAGBaseGraphConfig(
+            ExtractUniversalGraph(
+                ExtractUniversalGraphConfig(
                     chunk_keys_artifact=self.chunk_keys_artifact,
-                    result_artifact=self.extract_result_artifact,
-                    graph_node_keys_artifact=self.graph_node_keys_artifact,
-                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
-                    chunks_artifact=self.chunks_artifact,
-                    extraction_trace_artifact="hi_rag_extraction_trace",
-                    entity_extract_max_gleaning=self.entity_extract_max_gleaning,
-                    entity_summary_to_max_tokens=self.entity_summary_to_max_tokens,
-                    summary_llm_max_tokens=self.summary_llm_max_tokens,
-                    temperature=self.temperature,
-                    object_store=self.object_store,
-                    graph_store=self.graph_store,
-                    language_model=self.language_model,
-                )
-            ),
-            HiRAGHierarchicalAggregation(
-                HiRAGHierarchicalAggregationConfig(
-                    chunks_artifact=self.chunks_artifact,
-                    base_entities_artifact="hi_rag_base_entities",
-                    base_relations_artifact="hi_rag_base_relations",
-                    graph_node_keys_artifact=self.graph_node_keys_artifact,
-                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
-                    result_artifact="hi_rag_hierarchical_aggregation_result",
-                    extraction_trace_artifact="hi_rag_extraction_trace",
-                    hierarchical_layers=self.hierarchical_layers,
-                    hierarchical_max_length_in_cluster=self.hierarchical_max_length_in_cluster,
-                    hierarchical_reduction_dimension=self.hierarchical_reduction_dimension,
-                    hierarchical_cluster_threshold=self.hierarchical_cluster_threshold,
-                    hierarchical_sparsity_threshold=self.hierarchical_sparsity_threshold,
-                    hierarchical_sparsity_change_rate=self.hierarchical_sparsity_change_rate,
-                    clustering_backend=self.clustering_backend,  # type: ignore[arg-type]
-                    entity_summary_to_max_tokens=self.entity_summary_to_max_tokens,
-                    summary_llm_max_tokens=self.summary_llm_max_tokens,
-                    temperature=self.temperature,
-                    object_store=self.object_store,
-                    graph_store=self.graph_store,
-                    language_model=self.language_model,
-                    embedding_model=self.embedding_model,
-                )
-            ),
-            HiRAGCommunity(
-                HiRAGCommunityConfig(
-                    graph_node_keys_artifact=self.graph_node_keys_artifact,
-                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
-                    community_schema_artifact=self.community_schema_artifact,
-                    community_reports_artifact=self.community_reports_artifact,
-                    community_report_keys_artifact=self.community_report_keys_artifact,
-                    result_artifact=self.community_result_artifact,
-                    report_context_max_tokens=self.max_token_for_community_report,
-                    batch_size=self.batch_size,
-                    graph_cluster_algorithm=self.graph_cluster_algorithm,
-                    max_graph_cluster_size=self.max_graph_cluster_size,
-                    graph_cluster_seed=self.graph_cluster_seed,
+                    entity_keys_artifact=self.entity_keys_artifact,
+                    relation_keys_artifact=self.relation_keys_artifact,
                     temperature=self.temperature,
                     object_store=self.object_store,
                     language_model=self.language_model,
                 )
             ),
-            BuildHiRAGGraph(
-                BuildHiRAGGraphConfig(
-                    table_names=self.table_names,
-                    vector_collections=self.vector_collections,
-                    graph_node_keys_artifact=self.graph_node_keys_artifact,
-                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
-                    chunks_artifact=self.chunks_artifact,
-                    community_schema_artifact=self.community_schema_artifact,
-                    community_reports_artifact=self.community_reports_artifact,
-                    community_report_keys_artifact=self.community_report_keys_artifact,
-                    result_artifact=self.build_result_artifact,
-                    vector_metric=self.vector_metric,
-                    graph_cluster_algorithm=self.graph_cluster_algorithm,
-                    max_graph_cluster_size=self.max_graph_cluster_size,
-                    graph_cluster_seed=self.graph_cluster_seed,
-                    batch_size=self.batch_size,
-                    temperature=self.temperature,
-                    object_store=self.object_store,
-                    graph_store=self.graph_store,
-                    sql_store=self.sql_store,
-                    vector_store=self.vector_store,
-                    language_model=self.language_model,
-                    embedding_model=self.embedding_model,
+        ]
+        if self.schema_constraint_enabled:
+            steps.append(
+                ConstrainGraphByOntology(
+                    ConstrainGraphByOntologyConfig(
+                        schema=self.ontology_schema,
+                        chunk_keys_artifact=self.chunk_keys_artifact,
+                        entity_keys_artifact=self.entity_keys_artifact,
+                        relation_keys_artifact=self.relation_keys_artifact,
+                        constrained_entity_keys_artifact=constrained_entity_keys_artifact,
+                        constrained_relation_keys_artifact=constrained_relation_keys_artifact,
+                        object_store=self.object_store,
+                        language_model=self.language_model,
+                    )
                 )
-            ),
+            )
+        steps.extend(
+            [
+                AdaptUniversalGraphForHiRAG(
+                    AdaptUniversalGraphForHiRAGConfig(
+                        chunk_keys_artifact=self.chunk_keys_artifact,
+                        entity_keys_artifact=entity_input,
+                        relation_keys_artifact=relation_input,
+                        graph_nodes_prefix="hi_rag/graph/nodes",
+                        graph_edges_prefix="hi_rag/graph/edges",
+                        graph_node_keys_artifact=self.graph_node_keys_artifact,
+                        graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                        chunks_artifact=self.chunks_artifact,
+                        base_entities_artifact="hi_rag_base_entities",
+                        base_relations_artifact="hi_rag_base_relations",
+                        extraction_trace_artifact="hi_rag_extraction_trace",
+                        result_artifact=self.extract_result_artifact,
+                        object_store=self.object_store,
+                        graph_store=self.graph_store,
+                    )
+                ),
+                HiRAGHierarchicalAggregation(
+                    HiRAGHierarchicalAggregationConfig(
+                        chunks_artifact=self.chunks_artifact,
+                        base_entities_artifact="hi_rag_base_entities",
+                        base_relations_artifact="hi_rag_base_relations",
+                        graph_node_keys_artifact=self.graph_node_keys_artifact,
+                        graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                        result_artifact="hi_rag_hierarchical_aggregation_result",
+                        extraction_trace_artifact="hi_rag_extraction_trace",
+                        hierarchical_layers=self.hierarchical_layers,
+                        hierarchical_max_length_in_cluster=(
+                            self.hierarchical_max_length_in_cluster
+                        ),
+                        hierarchical_reduction_dimension=(
+                            self.hierarchical_reduction_dimension
+                        ),
+                        hierarchical_cluster_threshold=self.hierarchical_cluster_threshold,
+                        hierarchical_sparsity_threshold=(
+                            self.hierarchical_sparsity_threshold
+                        ),
+                        hierarchical_sparsity_change_rate=(
+                            self.hierarchical_sparsity_change_rate
+                        ),
+                        clustering_backend=self.clustering_backend,  # type: ignore[arg-type]
+                        entity_summary_to_max_tokens=self.entity_summary_to_max_tokens,
+                        summary_llm_max_tokens=self.summary_llm_max_tokens,
+                        temperature=self.temperature,
+                        object_store=self.object_store,
+                        graph_store=self.graph_store,
+                        language_model=self.language_model,
+                        embedding_model=self.embedding_model,
+                    )
+                ),
+                HiRAGCommunity(
+                    HiRAGCommunityConfig(
+                        graph_node_keys_artifact=self.graph_node_keys_artifact,
+                        graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                        community_schema_artifact=self.community_schema_artifact,
+                        community_reports_artifact=self.community_reports_artifact,
+                        community_report_keys_artifact=self.community_report_keys_artifact,
+                        result_artifact=self.community_result_artifact,
+                        report_context_max_tokens=self.max_token_for_community_report,
+                        batch_size=self.batch_size,
+                        graph_cluster_algorithm=self.graph_cluster_algorithm,
+                        max_graph_cluster_size=self.max_graph_cluster_size,
+                        graph_cluster_seed=self.graph_cluster_seed,
+                        temperature=self.temperature,
+                        object_store=self.object_store,
+                        language_model=self.language_model,
+                    )
+                ),
+                BuildHiRAGGraph(
+                    BuildHiRAGGraphConfig(
+                        table_names=self.table_names,
+                        vector_collections=self.vector_collections,
+                        graph_node_keys_artifact=self.graph_node_keys_artifact,
+                        graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                        chunks_artifact=self.chunks_artifact,
+                        community_schema_artifact=self.community_schema_artifact,
+                        community_reports_artifact=self.community_reports_artifact,
+                        community_report_keys_artifact=self.community_report_keys_artifact,
+                        result_artifact=self.build_result_artifact,
+                        vector_metric=self.vector_metric,
+                        graph_cluster_algorithm=self.graph_cluster_algorithm,
+                        max_graph_cluster_size=self.max_graph_cluster_size,
+                        graph_cluster_seed=self.graph_cluster_seed,
+                        batch_size=self.batch_size,
+                        temperature=self.temperature,
+                        object_store=self.object_store,
+                        graph_store=self.graph_store,
+                        sql_store=self.sql_store,
+                        vector_store=self.vector_store,
+                        language_model=self.language_model,
+                        embedding_model=self.embedding_model,
+                    )
+                ),
+            ]
         )
+        return tuple(steps)

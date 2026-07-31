@@ -17,7 +17,7 @@ from heta_framework.kb.steps import (  # noqa: E402
     LeanRAGSemanticAggregation,
     LeanRAGSemanticAggregationConfig,
 )
-from heta_framework.kb.steps.extract_leanrag_graph import (  # noqa: E402
+from heta_framework.kb.steps.leanrag_semantic_aggregation import (  # noqa: E402
     export_all_entities_json_lines,
     pack_single_community_describe,
     parse_aggregate_response,

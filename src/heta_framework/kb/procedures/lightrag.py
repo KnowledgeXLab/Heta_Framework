@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal, Mapping
 
 from heta_framework.kb.steps import (
+    AdaptUniversalGraphForLightRAG,
+    AdaptUniversalGraphForLightRAGConfig,
     BuildLightRAGGraph,
     BuildLightRAGGraphConfig,
-    ExtractLightRAGGraph,
-    ExtractLightRAGGraphConfig,
+    ConstrainGraphByOntology,
+    ConstrainGraphByOntologyConfig,
+    ExtractUniversalGraph,
+    ExtractUniversalGraphConfig,
     KnowledgeStepProtocol,
     LightRAGTableNames,
     LightRAGVectorCollections,
@@ -39,6 +43,8 @@ class LightRAGProcedure:
     vector_metric: str = "cosine"
     batch_size: int = 128
     temperature: float = 0.0
+    schema_constraint_enabled: bool = False
+    ontology_schema: Mapping[str, Any] = field(default_factory=dict)
 
     object_store: str | None = None
     graph_store: str | None = None
@@ -54,38 +60,80 @@ class LightRAGProcedure:
 
     def steps(self) -> tuple[KnowledgeStepProtocol, ...]:
         """Expand this procedure into executable build steps."""
-        return (
-            ExtractLightRAGGraph(
-                ExtractLightRAGGraphConfig(
-                    extraction_format=self.extraction_format,
+        relation_keys_artifact = "light_rag_relation_keys"
+        constrained_entity_keys_artifact = "light_rag_ontology_entity_keys"
+        constrained_relation_keys_artifact = "light_rag_ontology_relation_keys"
+        entity_input = (
+            constrained_entity_keys_artifact
+            if self.schema_constraint_enabled
+            else self.entity_keys_artifact
+        )
+        relation_input = (
+            constrained_relation_keys_artifact
+            if self.schema_constraint_enabled
+            else relation_keys_artifact
+        )
+        steps: list[KnowledgeStepProtocol] = [
+            ExtractUniversalGraph(
+                ExtractUniversalGraphConfig(
                     chunk_keys_artifact=self.chunk_keys_artifact,
                     entity_keys_artifact=self.entity_keys_artifact,
-                    graph_node_keys_artifact=self.graph_node_keys_artifact,
-                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
-                    result_artifact=self.extract_result_artifact,
-                    entity_extract_max_gleaning=self.entity_extract_max_gleaning,
-                    entity_summary_to_max_tokens=self.entity_summary_to_max_tokens,
-                    summary_llm_max_tokens=self.summary_llm_max_tokens,
+                    relation_keys_artifact=relation_keys_artifact,
                     temperature=self.temperature,
                     object_store=self.object_store,
-                    graph_store=self.graph_store,
                     language_model=self.language_model,
                 )
-            ),
-            BuildLightRAGGraph(
-                BuildLightRAGGraphConfig(
-                    table_names=self.table_names,
-                    vector_collections=self.vector_collections,
-                    graph_node_keys_artifact=self.graph_node_keys_artifact,
-                    graph_edge_keys_artifact=self.graph_edge_keys_artifact,
-                    chunk_keys_artifact=self.chunk_keys_artifact,
-                    result_artifact=self.build_result_artifact,
-                    vector_metric=self.vector_metric,
-                    batch_size=self.batch_size,
-                    object_store=self.object_store,
-                    sql_store=self.sql_store,
-                    vector_store=self.vector_store,
-                    embedding_model=self.embedding_model,
+            )
+        ]
+        if self.schema_constraint_enabled:
+            steps.append(
+                ConstrainGraphByOntology(
+                    ConstrainGraphByOntologyConfig(
+                        schema=self.ontology_schema,
+                        chunk_keys_artifact=self.chunk_keys_artifact,
+                        entity_keys_artifact=self.entity_keys_artifact,
+                        relation_keys_artifact=relation_keys_artifact,
+                        constrained_entity_keys_artifact=constrained_entity_keys_artifact,
+                        constrained_relation_keys_artifact=constrained_relation_keys_artifact,
+                        object_store=self.object_store,
+                        language_model=self.language_model,
+                    )
                 )
-            ),
+            )
+        steps.extend(
+            [
+                AdaptUniversalGraphForLightRAG(
+                    AdaptUniversalGraphForLightRAGConfig(
+                        chunk_keys_artifact=self.chunk_keys_artifact,
+                        entity_keys_artifact=entity_input,
+                        relation_keys_artifact=relation_input,
+                        graph_nodes_prefix="light_rag/graph/nodes",
+                        graph_edges_prefix="light_rag/graph/edges",
+                        graph_node_keys_artifact=self.graph_node_keys_artifact,
+                        graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                        result_artifact=self.extract_result_artifact,
+                        temperature=self.temperature,
+                        object_store=self.object_store,
+                        graph_store=self.graph_store,
+                        language_model=self.language_model,
+                    )
+                ),
+                BuildLightRAGGraph(
+                    BuildLightRAGGraphConfig(
+                        table_names=self.table_names,
+                        vector_collections=self.vector_collections,
+                        graph_node_keys_artifact=self.graph_node_keys_artifact,
+                        graph_edge_keys_artifact=self.graph_edge_keys_artifact,
+                        chunk_keys_artifact=self.chunk_keys_artifact,
+                        result_artifact=self.build_result_artifact,
+                        vector_metric=self.vector_metric,
+                        batch_size=self.batch_size,
+                        object_store=self.object_store,
+                        sql_store=self.sql_store,
+                        vector_store=self.vector_store,
+                        embedding_model=self.embedding_model,
+                    )
+                ),
+            ]
         )
+        return tuple(steps)

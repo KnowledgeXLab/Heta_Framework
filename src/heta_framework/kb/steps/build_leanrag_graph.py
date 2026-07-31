@@ -14,7 +14,7 @@ from heta_framework.common.stores.vector import VectorCollectionConfig, VectorRe
 from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
 from heta_framework.kb.search import SearchAsset
 from heta_framework.kb.steps.graph_storage import batches, compact_json, validate_identifier
-from heta_framework.kb.steps.extract_leanrag_graph import (
+from heta_framework.kb.steps.leanrag_semantic_aggregation import (
     export_all_entities_json_lines,
     export_communities_json_lines,
     export_generated_relations_json_lines,

@@ -18,7 +18,7 @@ from heta_framework.kb.search.engines._provenance import citations_from_results,
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 from heta_framework.kb.steps.build_hirag_graph import HiRAGGraphIndexAdapter
-from heta_framework.kb.steps.extract_hirag_graph import HIRAG_PROMPTS
+from heta_framework.kb.graphing.prompts import HIRAG_PROMPTS
 from heta_framework.kb.steps.types import ComponentRef, model_ref, store_ref
 
 

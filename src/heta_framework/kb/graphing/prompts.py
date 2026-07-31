@@ -99,6 +99,110 @@ Chunk text:
 {chunk_text}
 """
 
+HETA_ENTITY_EXTRACTION_PROMPT = ENTITY_EXTRACTION_PROMPT
+HETA_RELATION_EXTRACTION_PROMPT = RELATION_EXTRACTION_PROMPT
+
+ONTOLOGY_CONSTRAINT_SYSTEM_PROMPT = """You are a precise ontology constraint engine.
+Return only valid JSON. Do not include markdown, explanations, or extra text."""
+
+ONTOLOGY_ENTITY_CONSTRAINT_PROMPT = """Constrain extracted knowledge graph entities to the ontology schema.
+
+Rules:
+- Return a JSON object with exactly one top-level key: "entities".
+- Each returned entity must keep the same JSON shape as the input entity.
+- Keep only entities grounded in the input chunk and compatible with the schema.
+- You may map entity.type to an allowed schema type when the evidence supports it.
+- You may improve descriptions only when grounded in the input chunk.
+- Delete entities that are irrelevant, unsupported, or cannot be mapped to the schema.
+
+Ontology schema:
+{schema_json}
+
+Entities:
+{entities_json}
+
+Chunk text:
+{chunk_text}
+"""
+
+ONTOLOGY_RELATION_CONSTRAINT_PROMPT = """Constrain extracted knowledge graph relations to the ontology schema.
+
+Rules:
+- Return a JSON object with exactly one top-level key: "relations".
+- Each returned relation must keep the same JSON shape as the input relation.
+- Keep only relations grounded in the input chunk and compatible with the schema.
+- source and target must refer to entities from the provided constrained entity list.
+- You may map relation.type to an allowed schema type when the evidence supports it.
+- You may improve relation names and descriptions only when grounded in the input chunk.
+- Delete relations whose endpoints do not exist or whose endpoint types violate the schema.
+
+Ontology schema:
+{schema_json}
+
+Constrained entities:
+{entities_json}
+
+Relations:
+{relations_json}
+
+Chunk text:
+{chunk_text}
+"""
+
+ONTOLOGY_ENTITY_CONSTRAINT_RETRY_PROMPT = """The previous ontology entity constraint response was invalid.
+
+Validation error:
+{error}
+
+Return corrected JSON with this shape:
+{{"entities":[{{"entity_id":"...","chunk_id":"...","document_id":"...","name":"...","type":"...","subtype":null,"description":"...","attributes":{{}},"source_chunk_ids":["..."]}}]}}
+
+Ontology schema:
+{schema_json}
+
+Entities:
+{entities_json}
+
+Chunk text:
+{chunk_text}
+"""
+
+ONTOLOGY_RELATION_CONSTRAINT_RETRY_PROMPT = """The previous ontology relation constraint response was invalid.
+
+Validation error:
+{error}
+
+Return corrected JSON with this shape:
+{{"relations":[{{"relation_id":"...","chunk_id":"...","document_id":"...","source_entity_id":"...","target_entity_id":"...","source_entity_name":"...","target_entity_name":"...","type":"...","name":"...","description":"...","attributes":{{}},"source_chunk_ids":["..."]}}]}}
+
+Ontology schema:
+{schema_json}
+
+Constrained entities:
+{entities_json}
+
+Relations:
+{relations_json}
+
+Chunk text:
+{chunk_text}
+"""
+
+LIGHTRAG_RELATION_KEYWORDS_PROMPT = """Extract concise LightRAG relationship keywords.
+
+Rules:
+- Return a JSON object with exactly one top-level key: "keywords".
+- "keywords" must be a comma-separated string.
+- Use short topical phrases grounded in the relation and chunk.
+- Do not invent facts.
+
+Relation:
+{relation_json}
+
+Chunk text:
+{chunk_text}
+"""
+
 ENTITY_DEDUPLICATION_SYSTEM_PROMPT = """You are a precise knowledge graph entity deduplication engine.
 Return only valid JSON. Do not include markdown, explanations, or extra text."""
 
@@ -170,6 +274,7 @@ Description List: {description_list}
 #######
 Output:
 """
+
 
 GRAPH_RAG_ENTITY_EXTRACTION_PROMPT="""-Goal-
 Given a text document that is potentially relevant to this activity and a list of entity types, identify all entities of those types from the text and all relationships among the identified entities.
@@ -402,3 +507,106 @@ Do not include information where the supporting evidence for it is not provided.
 
 Output:
 """
+
+LIGHTRAG_PROMPTS = {
+    "default_entity_types_guidance": (
+        "Extract named entities relevant to the text. Use concise, domain-specific types."
+    ),
+    "entity_extraction_json_examples": [],
+    "entity_extraction_json_system_prompt": (
+        "You are a precise LightRAG graph extraction engine. Return only valid JSON."
+    ),
+    "entity_extraction_json_user_prompt": (
+        "Extract entities and relationships from the text.\n\n"
+        "Rules:\n"
+        "- Return JSON with keys: entities, relationships.\n"
+        "- entities items require: name, type, description.\n"
+        "- relationships items require: source, target, description, keywords, weight.\n"
+        "- source and target must match extracted entity names.\n"
+        "- keywords must be comma-separated concise topical phrases.\n"
+        "- weight must be numeric.\n"
+        "- Do not invent unsupported facts.\n\n"
+        "Entity type guidance:\n{entity_types_guidance}\n\n"
+        "Text:\n{input_text}"
+    ),
+    "entity_continue_extraction_json_user_prompt": (
+        "Continue extracting any missed entities and relationships. Return only the same JSON shape."
+    ),
+    "entity_extraction_examples": [],
+    "entity_extraction_system_prompt": (
+        "You are a precise LightRAG tuple graph extraction engine."
+    ),
+    "entity_extraction_user_prompt": GRAPH_RAG_ENTITY_EXTRACTION_PROMPT,
+    "entity_continue_extraction_user_prompt": GRAPH_RAG_ENTITY_CONTINUE_EXTRACTION_PROMPT,
+}
+
+HIRAG_GRAPH_FIELD_SEP = "<SEP>"
+HIRAG_PROMPTS = {
+    "DEFAULT_TUPLE_DELIMITER": "<|>",
+    "DEFAULT_RECORD_DELIMITER": "##",
+    "DEFAULT_COMPLETION_DELIMITER": "<|COMPLETE|>",
+    "META_ENTITY_TYPES": ["organization", "person", "location", "event"],
+    "hi_entity_extraction": GRAPH_RAG_ENTITY_EXTRACTION_PROMPT,
+    "hi_relation_extraction": (
+        "Given the extracted entities and the source text, extract relationships among "
+        "the entities only.\n\nEntities:\n{entities}\n\nText:\n{input_text}"
+    ),
+    "entiti_continue_extraction": GRAPH_RAG_ENTITY_CONTINUE_EXTRACTION_PROMPT,
+    "entiti_if_loop_extraction": GRAPH_RAG_ENTITY_IF_LOOP_EXTRACTION_PROMPT,
+    "summary_clusters": (
+        "You are given a list of related entity descriptions. Synthesize one concise "
+        "higher-level entity that represents the shared concept.\n\n"
+        "Entity description list: {entity_description_list}"
+    ),
+    "summarize_entity_descriptions": GRAPH_SUMMARY_PROMPT,
+    "community_report": GRAPH_RAG_COMMUNITY_REPORT_PROMPT,
+    "local_rag_response": (
+        "You are a helpful assistant answering questions from HiRAG retrieval context.\n\n"
+        "Use only the context data below to answer. If the context does not contain "
+        "enough information, say that the available context is insufficient.\n"
+        "Do not invent facts. Cite source identifiers from the context when useful.\n\n"
+        "Response type: {response_type}\n\n"
+        "Context data:\n"
+        "{context_data}"
+    ),
+}
+
+HIRAG_COMMUNITY_SUMMARY_PROMPT = GRAPH_RAG_COMMUNITY_REPORT_PROMPT
+HIRAG_ENTITY_SUMMARY_PROMPT = GRAPH_SUMMARY_PROMPT
+
+LEANRAG_AGGREGATE_ENTITY_PROMPT = """You are an expert in concept synthesis.
+Identify one meaningful aggregate entity from the provided related entities and evidence.
+
+Rules:
+- Return only valid JSON.
+- Include "entity_name", "entity_description", and "findings".
+- The aggregate entity must be grounded in the provided evidence.
+- Do not invent facts.
+
+Input:
+{input_text}
+"""
+
+LEANRAG_AGGREGATE_RELATION_PROMPT = """Summarize the high-level relationship between two aggregate entities.
+
+Rules:
+- Return one concise relationship description.
+- Base the description only on the two aggregate descriptions and evidence relations.
+- Do not output tuple records.
+- Stay within {tokens} tokens.
+
+Aggregation A: {entity_a}
+Aggregation A Description: {entity_a_description}
+
+Aggregation B: {entity_b}
+Aggregation B Description: {entity_b_description}
+
+Evidence:
+{relation_information}
+"""
+
+LEANRAG_PROMPTS = {
+    "aggregate_entities": LEANRAG_AGGREGATE_ENTITY_PROMPT,
+    "cluster_cluster_relation": LEANRAG_AGGREGATE_RELATION_PROMPT,
+    "rag_response": "{context_data}",
+}

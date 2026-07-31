@@ -24,7 +24,7 @@ from heta_framework.kb.steps.community_report import (
     generate_community_reports,
     put_community_report,
 )
-from heta_framework.kb.steps.extract_hirag_graph import HIRAG_PROMPTS
+from heta_framework.kb.graphing.prompts import HIRAG_PROMPTS
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, model_ref, store_ref
 

@@ -11,15 +11,14 @@ from heta_framework.kb.procedures import (  # noqa: E402
 )
 from heta_framework.kb.search import QueryEngineRegistry  # noqa: E402
 from heta_framework.kb.steps import (  # noqa: E402
+    AdaptUniversalGraphForHiRAG,
+    AdaptUniversalGraphForLightRAG,
     BuildLightRAGGraph,
     BuildHiRAGGraph,
     BuildGraph,
     DeduplicateEntities,
     DeduplicateRelations,
-    ExtractLightRAGGraph,
-    ExtractHiRAGBaseGraph,
-    ExtractEntities,
-    ExtractRelations,
+    ExtractUniversalGraph,
     GraphTableNames,
     LightRAGTableNames,
     HiRAGTableNames,
@@ -51,31 +50,28 @@ def test_heta_graph_build_procedure_expands_to_deduplicated_build_steps():
     assert isinstance(procedure, KnowledgeProcedureProtocol)
     assert procedure.name == "heta_graph"
     assert [type(step) for step in steps] == [
-        ExtractEntities,
-        ExtractRelations,
+        ExtractUniversalGraph,
         DeduplicateEntities,
         DeduplicateRelations,
         BuildGraph,
     ]
     assert steps[0].config.chunk_keys_artifact == "custom_chunk_keys"
     assert steps[0].config.entity_keys_artifact == "entity_keys"
-    assert steps[1].config.entity_keys_artifact == "entity_keys"
-    assert steps[1].config.relation_keys_artifact == "relation_keys"
-    assert steps[2].config.deduplicated_entity_keys_artifact == "deduplicated_entity_keys"
-    assert steps[3].config.deduplicated_relation_keys_artifact == "deduplicated_relation_keys"
-    assert steps[4].config.entity_keys_artifact == "deduplicated_entity_keys"
-    assert steps[4].config.relation_keys_artifact == "deduplicated_relation_keys"
-    assert steps[4].config.table_names.entities == "paper_entities"
-    assert steps[4].config.sql_store == "pg"
-    assert steps[4].config.vector_store == "milvus"
+    assert steps[0].config.relation_keys_artifact == "relation_keys"
+    assert steps[1].config.deduplicated_entity_keys_artifact == "deduplicated_entity_keys"
+    assert steps[2].config.deduplicated_relation_keys_artifact == "deduplicated_relation_keys"
+    assert steps[3].config.entity_keys_artifact == "deduplicated_entity_keys"
+    assert steps[3].config.relation_keys_artifact == "deduplicated_relation_keys"
+    assert steps[3].config.table_names.entities == "paper_entities"
+    assert steps[3].config.sql_store == "pg"
+    assert steps[3].config.vector_store == "milvus"
 
 
 def test_heta_graph_procedure_can_skip_deduplication():
     steps = HetaGraphProcedure.build(deduplicate=False).steps()
 
     assert [type(step) for step in steps] == [
-        ExtractEntities,
-        ExtractRelations,
+        ExtractUniversalGraph,
         BuildGraph,
     ]
     assert steps[-1].config.entity_keys_artifact == "entity_keys"
@@ -86,8 +82,7 @@ def test_heta_graph_merge_procedure_uses_merge_graph_into_store():
     steps = HetaGraphProcedure.merge_into_store().steps()
 
     assert [type(step) for step in steps] == [
-        ExtractEntities,
-        ExtractRelations,
+        ExtractUniversalGraph,
         DeduplicateEntities,
         DeduplicateRelations,
         MergeGraphIntoStore,
@@ -117,14 +112,17 @@ def test_lightrag_procedure_expands_to_extract_and_build_steps():
 
     assert isinstance(procedure, KnowledgeProcedureProtocol)
     assert procedure.name == "lightrag"
-    assert [type(step) for step in steps] == [ExtractLightRAGGraph, BuildLightRAGGraph]
-    assert steps[0].config.extraction_format == "tuple"
+    assert [type(step) for step in steps] == [
+        ExtractUniversalGraph,
+        AdaptUniversalGraphForLightRAG,
+        BuildLightRAGGraph,
+    ]
     assert steps[0].config.chunk_keys_artifact == "custom_chunk_keys"
-    assert steps[0].config.graph_store == "graph"
+    assert steps[1].config.graph_store == "graph"
     assert steps[1].config.graph_node_keys_artifact == "light_rag_graph_node_keys"
-    assert steps[1].config.table_names.entities == "lr_entities"
-    assert steps[1].config.sql_store == "sqlite"
-    assert steps[1].config.vector_store == "vectors"
+    assert steps[2].config.table_names.entities == "lr_entities"
+    assert steps[2].config.sql_store == "sqlite"
+    assert steps[2].config.vector_store == "vectors"
 
 
 def test_lightrag_query_modes_registered_by_default_registry():
@@ -163,26 +161,27 @@ def test_hirag_procedure_expands_to_parse_split_extract_and_build_steps():
     assert [type(step) for step in steps] == [
         ParseDocuments,
         SplitDocuments,
-        ExtractHiRAGBaseGraph,
+        ExtractUniversalGraph,
+        AdaptUniversalGraphForHiRAG,
         HiRAGHierarchicalAggregation,
         HiRAGCommunity,
         BuildHiRAGGraph,
     ]
     assert steps[1].config.chunk_size == 256
     assert steps[1].config.overlap == 32
-    assert steps[2].config.graph_store == "graph"
     assert steps[3].config.graph_store == "graph"
-    assert steps[3].config.embedding_model == "embedder"
-    assert steps[4].config.graph_cluster_algorithm == "leiden"
-    assert steps[4].config.max_graph_cluster_size == 7
-    assert steps[4].config.graph_cluster_seed == 123
-    assert steps[4].config.language_model == "reasoner"
-    assert steps[5].config.table_names.entities == "hi_entities"
+    assert steps[4].config.graph_store == "graph"
+    assert steps[4].config.embedding_model == "embedder"
     assert steps[5].config.graph_cluster_algorithm == "leiden"
     assert steps[5].config.max_graph_cluster_size == 7
     assert steps[5].config.graph_cluster_seed == 123
-    assert steps[5].config.sql_store == "sqlite"
-    assert steps[5].config.vector_store == "vectors"
+    assert steps[5].config.language_model == "reasoner"
+    assert steps[6].config.table_names.entities == "hi_entities"
+    assert steps[6].config.graph_cluster_algorithm == "leiden"
+    assert steps[6].config.max_graph_cluster_size == 7
+    assert steps[6].config.graph_cluster_seed == 123
+    assert steps[6].config.sql_store == "sqlite"
+    assert steps[6].config.vector_store == "vectors"
 
 
 def test_hirag_procedure_keeps_original_hierachical_typo_alias():

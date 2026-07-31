@@ -16,7 +16,7 @@ from heta_framework.common.stores.sql import SQLStoreProtocol
 from heta_framework.common.stores.vector import VectorCollectionConfig, VectorRecord, VectorStoreProtocol
 from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
 from heta_framework.kb.search import SearchAsset
-from heta_framework.kb.steps.extract_hirag_graph import HIRAG_PROMPTS
+from heta_framework.kb.graphing.prompts import HIRAG_PROMPTS
 from heta_framework.kb.steps.community_report import CommunitySchema, community_schema_to_dict
 from heta_framework.kb.steps.graph_storage import batches, compact_json, validate_identifier
 from heta_framework.kb.steps.protocols import StepContextProtocol

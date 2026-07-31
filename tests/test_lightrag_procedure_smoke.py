@@ -41,7 +41,54 @@ class SmokeLanguageModel:
     async def invoke(self, request: ModelRequest) -> ModelResult:
         self.requests.append(request)
         trace = request.trace_context or {}
+        stage = str(trace.get("stage") or "")
         prompt = f"{request.system_prompt or ''}\n{request.prompt or ''}"
+        if trace.get("step") == "extract_universal_graph" and stage == "entity_extraction":
+            return ModelResult(
+                text="",
+                parsed={
+                    "entities": [
+                        {
+                            "name": "Alice",
+                            "type": "Person",
+                            "subtype": None,
+                            "description": "Alice is a researcher.",
+                            "attributes": {},
+                        },
+                        {
+                            "name": "Bob",
+                            "type": "Person",
+                            "subtype": None,
+                            "description": "Bob is a collaborator.",
+                            "attributes": {},
+                        },
+                    ]
+                },
+                model_name=self.model_name,
+            )
+        if trace.get("step") == "extract_universal_graph" and stage == "relation_extraction":
+            return ModelResult(
+                text="",
+                parsed={
+                    "relations": [
+                        {
+                            "source": "Alice",
+                            "target": "Bob",
+                            "type": "collaboration",
+                            "name": "collaborates with",
+                            "description": "Alice collaborates with Bob.",
+                            "attributes": {"weight": "1.0"},
+                        }
+                    ]
+                },
+                model_name=self.model_name,
+            )
+        if trace.get("stage") == "lightrag_relation_keywords":
+            return ModelResult(
+                text='{"keywords":"collaboration"}',
+                parsed={"keywords": "collaboration"},
+                model_name=self.model_name,
+            )
         if trace.get("step") == "extract_light_rag_graph":
             if "relation<|#|>" in prompt or "entity<|#|>" in prompt:
                 return ModelResult(

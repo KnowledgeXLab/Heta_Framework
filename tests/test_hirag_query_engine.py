@@ -31,12 +31,17 @@ from heta_framework.kb.steps import (  # noqa: E402
     HiRAGTableNames,
     HiRAGVectorCollections,
 )
+from heta_framework.kb.graphing.prompts import HIRAG_PROMPTS  # noqa: E402
 
 
 TEST_PROMPTS = {
     "community_report": "REPORT {input_text}",
     "local_rag_response": "Use context:\n{context_data}\nResponse type: {response_type}",
 }
+
+
+def test_default_hirag_prompts_include_query_response_prompt():
+    assert "local_rag_response" in HIRAG_PROMPTS
 
 
 class FakeRecipe:

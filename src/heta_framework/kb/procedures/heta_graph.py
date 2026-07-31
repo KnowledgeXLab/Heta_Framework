@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 from heta_framework.kb.steps import (
     BuildGraph,
     BuildGraphConfig,
+    ConstrainGraphByOntology,
+    ConstrainGraphByOntologyConfig,
     DeduplicateEntities,
     DeduplicateEntitiesConfig,
     DeduplicateRelations,
     DeduplicateRelationsConfig,
-    ExtractEntities,
-    ExtractEntitiesConfig,
-    ExtractRelations,
-    ExtractRelationsConfig,
+    ExtractUniversalGraph,
+    ExtractUniversalGraphConfig,
     GraphTableNames,
     GraphVectorCollections,
     KnowledgeStepProtocol,
@@ -32,6 +32,8 @@ class HetaGraphProcedure:
 
     mode: GraphProcedureMode = "build"
     deduplicate: bool = True
+    schema_constraint_enabled: bool = False
+    ontology_schema: Mapping[str, Any] = field(default_factory=dict)
 
     chunk_keys_artifact: str = "chunk_keys"
     entity_keys_artifact: str = "entity_keys"
@@ -65,43 +67,58 @@ class HetaGraphProcedure:
 
     def steps(self) -> tuple[KnowledgeStepProtocol, ...]:
         """Expand this procedure into executable build steps."""
-        entity_input = (
-            self.deduplicated_entity_keys_artifact
-            if self.deduplicate
+        constrained_entity_keys_artifact = "ontology_entity_keys"
+        constrained_relation_keys_artifact = "ontology_relation_keys"
+        base_entity_input = (
+            constrained_entity_keys_artifact
+            if self.schema_constraint_enabled
             else self.entity_keys_artifact
         )
-        relation_input = (
-            self.deduplicated_relation_keys_artifact
-            if self.deduplicate
+        base_relation_input = (
+            constrained_relation_keys_artifact
+            if self.schema_constraint_enabled
             else self.relation_keys_artifact
+        )
+        entity_input = (
+            self.deduplicated_entity_keys_artifact if self.deduplicate else base_entity_input
+        )
+        relation_input = (
+            self.deduplicated_relation_keys_artifact if self.deduplicate else base_relation_input
         )
 
         steps: list[KnowledgeStepProtocol] = [
-            ExtractEntities(
-                ExtractEntitiesConfig(
-                    chunk_keys_artifact=self.chunk_keys_artifact,
-                    entity_keys_artifact=self.entity_keys_artifact,
-                    object_store=self.object_store,
-                    language_model=self.language_model,
-                )
-            ),
-            ExtractRelations(
-                ExtractRelationsConfig(
+            ExtractUniversalGraph(
+                ExtractUniversalGraphConfig(
                     chunk_keys_artifact=self.chunk_keys_artifact,
                     entity_keys_artifact=self.entity_keys_artifact,
                     relation_keys_artifact=self.relation_keys_artifact,
                     object_store=self.object_store,
                     language_model=self.language_model,
                 )
-            ),
+            )
         ]
+        if self.schema_constraint_enabled:
+            steps.append(
+                ConstrainGraphByOntology(
+                    ConstrainGraphByOntologyConfig(
+                        schema=self.ontology_schema,
+                        chunk_keys_artifact=self.chunk_keys_artifact,
+                        entity_keys_artifact=self.entity_keys_artifact,
+                        relation_keys_artifact=self.relation_keys_artifact,
+                        constrained_entity_keys_artifact=constrained_entity_keys_artifact,
+                        constrained_relation_keys_artifact=constrained_relation_keys_artifact,
+                        object_store=self.object_store,
+                        language_model=self.language_model,
+                    )
+                )
+            )
 
         if self.deduplicate:
             steps.extend(
                 [
                     DeduplicateEntities(
                         DeduplicateEntitiesConfig(
-                            entity_keys_artifact=self.entity_keys_artifact,
+                            entity_keys_artifact=base_entity_input,
                             deduplicated_entity_keys_artifact=(
                                 self.deduplicated_entity_keys_artifact
                             ),
@@ -112,7 +129,7 @@ class HetaGraphProcedure:
                     ),
                     DeduplicateRelations(
                         DeduplicateRelationsConfig(
-                            relation_keys_artifact=self.relation_keys_artifact,
+                            relation_keys_artifact=base_relation_input,
                             deduplicated_relation_keys_artifact=(
                                 self.deduplicated_relation_keys_artifact
                             ),

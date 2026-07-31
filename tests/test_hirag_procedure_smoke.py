@@ -36,6 +36,53 @@ class SmokeLanguageModel:
         self.requests.append(request)
         trace = request.trace_context or {}
         stage = str(trace.get("stage") or "")
+        if trace.get("step") == "extract_universal_graph" and stage == "entity_extraction":
+            return ModelResult(
+                text="",
+                parsed={
+                    "entities": [
+                        {
+                            "name": "alice",
+                            "type": "person",
+                            "subtype": None,
+                            "description": "Alice is a researcher.",
+                            "attributes": {},
+                        },
+                        {
+                            "name": "bob",
+                            "type": "person",
+                            "subtype": None,
+                            "description": "Bob is a collaborator.",
+                            "attributes": {},
+                        },
+                        {
+                            "name": "acme",
+                            "type": "organization",
+                            "subtype": None,
+                            "description": "Acme supports the work.",
+                            "attributes": {},
+                        },
+                    ]
+                },
+                model_name=self.model_name,
+            )
+        if trace.get("step") == "extract_universal_graph" and stage == "relation_extraction":
+            return ModelResult(
+                text="",
+                parsed={
+                    "relations": [
+                        {
+                            "source": "alice",
+                            "target": "bob",
+                            "type": "collaboration",
+                            "name": "collaborates with",
+                            "description": "Alice collaborates with Bob.",
+                            "attributes": {"weight": "1.0"},
+                        }
+                    ]
+                },
+                model_name=self.model_name,
+            )
         if stage == "hi_entity_extraction":
             return ModelResult(
                 text="##".join(

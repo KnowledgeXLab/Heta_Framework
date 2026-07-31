@@ -18,3 +18,7 @@ scripts
 RAG4HetaFramework.md
 heta-multihop-graphrag/
 heta-scifact-procedure-runs/*
+heta-scifact-procedure-test/*
+heta-scifact-procedure-runs_hirag/*
+heta-scifact-procedure-runs_stale/*
+heta-scifact-procedure*

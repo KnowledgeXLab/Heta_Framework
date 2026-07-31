@@ -37,6 +37,40 @@ class SmokeLanguageModel:
         self.requests.append(request)
         trace = request.trace_context or {}
         stage = str(trace.get("stage") or "")
+        if trace.get("step") == "extract_universal_graph" and stage == "entity_extraction":
+            return ModelResult(
+                text="",
+                parsed={
+                    "entities": [
+                        {
+                            "name": f"entity_{index}",
+                            "type": "concept",
+                            "subtype": None,
+                            "description": f"Entity {index} appears with Alice and Bob.",
+                            "attributes": {},
+                        }
+                        for index in range(10)
+                    ]
+                },
+                model_name=self.model_name,
+            )
+        if trace.get("step") == "extract_universal_graph" and stage == "relation_extraction":
+            return ModelResult(
+                text="",
+                parsed={
+                    "relations": [
+                        {
+                            "source": "entity_0",
+                            "target": "entity_2",
+                            "type": "supports",
+                            "name": "supports",
+                            "description": "Entity 0 supports Entity 2.",
+                            "attributes": {"weight": "1.0"},
+                        }
+                    ]
+                },
+                model_name=self.model_name,
+            )
         if stage == "hi_entity_extraction":
             records = [
                 f'("entity"<|>"entity_{index}"<|>"concept"<|>"Entity {index} appears with Alice and Bob.")'

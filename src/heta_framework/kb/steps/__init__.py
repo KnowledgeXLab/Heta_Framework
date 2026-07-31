@@ -57,6 +57,29 @@ from heta_framework.kb.steps.extract_relations import (
     ExtractRelationsConfig,
     ExtractRelationsResult,
 )
+from heta_framework.kb.steps.adapt_universal_graph import (
+    AdaptUniversalGraph,
+    AdaptUniversalGraphConfig,
+    AdaptUniversalGraphResult,
+    AdaptUniversalGraphForGraphRAG,
+    AdaptUniversalGraphForGraphRAGConfig,
+    AdaptUniversalGraphForHiRAG,
+    AdaptUniversalGraphForHiRAGConfig,
+    AdaptUniversalGraphForLeanRAG,
+    AdaptUniversalGraphForLeanRAGConfig,
+    AdaptUniversalGraphForLightRAG,
+    AdaptUniversalGraphForLightRAGConfig,
+)
+from heta_framework.kb.steps.constrain_graph_by_ontology import (
+    ConstrainGraphByOntology,
+    ConstrainGraphByOntologyConfig,
+    ConstrainGraphByOntologyResult,
+)
+from heta_framework.kb.steps.extract_universal_graph import (
+    ExtractUniversalGraph,
+    ExtractUniversalGraphConfig,
+    ExtractUniversalGraphResult,
+)
 from heta_framework.kb.steps.index import (
     ChunkVectorCollections,
     IndexVectors,
@@ -119,6 +142,8 @@ from heta_framework.kb.steps.extract_hirag_graph import (
     ExtractHiRAGGraph,
     ExtractHiRAGGraphConfig,
     ExtractHiRAGGraphResult,
+)
+from heta_framework.kb.steps.hirag_hierarchical_aggregation import (
     HiRAGHierarchicalAggregation,
     HiRAGHierarchicalAggregationConfig,
     HiRAGHierarchicalAggregationResult,
@@ -127,6 +152,8 @@ from heta_framework.kb.steps.extract_leanrag_graph import (
     ExtractLeanRAGGraph,
     ExtractLeanRAGGraphConfig,
     ExtractLeanRAGGraphResult,
+)
+from heta_framework.kb.steps.leanrag_semantic_aggregation import (
     LeanRAGSemanticAggregation,
     LeanRAGSemanticAggregationConfig,
     LeanRAGSemanticAggregationResult,
@@ -148,6 +175,17 @@ __all__ = [
     "BuildGraph",
     "BuildGraphConfig",
     "BuildGraphResult",
+    "AdaptUniversalGraph",
+    "AdaptUniversalGraphConfig",
+    "AdaptUniversalGraphResult",
+    "AdaptUniversalGraphForGraphRAG",
+    "AdaptUniversalGraphForGraphRAGConfig",
+    "AdaptUniversalGraphForHiRAG",
+    "AdaptUniversalGraphForHiRAGConfig",
+    "AdaptUniversalGraphForLeanRAG",
+    "AdaptUniversalGraphForLeanRAGConfig",
+    "AdaptUniversalGraphForLightRAG",
+    "AdaptUniversalGraphForLightRAGConfig",
     "BuildRAGGraph",
     "BuildRAGGraphConfig",
     "BuildRAGGraphResult",
@@ -175,6 +213,9 @@ __all__ = [
     "RAGGraphVectorCollections",
     "CommunityReport",
     "CommunitySchema",
+    "ConstrainGraphByOntology",
+    "ConstrainGraphByOntologyConfig",
+    "ConstrainGraphByOntologyResult",
     "FullTextIndexNames",
     "ComponentRef",
     "DeduplicateEntities",
@@ -222,6 +263,9 @@ __all__ = [
     "ExtractRelations",
     "ExtractRelationsConfig",
     "ExtractRelationsResult",
+    "ExtractUniversalGraph",
+    "ExtractUniversalGraphConfig",
+    "ExtractUniversalGraphResult",
     "IndexVectors",
     "IndexVectorsConfig",
     "IndexVectorsResult",
