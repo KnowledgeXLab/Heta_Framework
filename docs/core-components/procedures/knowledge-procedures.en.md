@@ -50,8 +50,8 @@ To build Heta graph knowledge, continue with:
 MergeChunks
 RechunkDocuments
 PersistChunks
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 DeduplicateEntities
 DeduplicateRelations
 BuildGraph / MergeGraphIntoStore
@@ -78,8 +78,8 @@ steps = [
 Default expansion:
 
 ```text
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 DeduplicateEntities
 DeduplicateRelations
 BuildGraph
@@ -117,8 +117,8 @@ steps = [
 Default expansion:
 
 ```text
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 DeduplicateEntities
 DeduplicateRelations
 MergeGraphIntoStore
@@ -156,8 +156,8 @@ steps = [
 Expansion:
 
 ```text
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 BuildGraph
 ```
 

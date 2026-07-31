@@ -86,8 +86,6 @@ plugins:
                         - Merge chunks: core-components/steps/merge-chunks.en.md
                         - Rechunk documents: core-components/steps/rechunk-documents.en.md
                         - Persist chunks: core-components/steps/persist-chunks.en.md
-                        - Extract entities: core-components/steps/extract-entities.en.md
-                        - Extract relations: core-components/steps/extract-relations.en.md
                         - Deduplicate entities: core-components/steps/deduplicate-entities.en.md
                         - Deduplicate relations: core-components/steps/deduplicate-relations.en.md
                         - Build graph: core-components/steps/build-graph.en.md
@@ -158,8 +156,6 @@ nav:
               - Merge chunks: core-components/steps/merge-chunks.zh.md
               - Rechunk documents: core-components/steps/rechunk-documents.zh.md
               - Persist chunks: core-components/steps/persist-chunks.zh.md
-              - Extract entities: core-components/steps/extract-entities.zh.md
-              - Extract relations: core-components/steps/extract-relations.zh.md
               - Deduplicate entities: core-components/steps/deduplicate-entities.zh.md
               - Deduplicate relations: core-components/steps/deduplicate-relations.zh.md
               - Build graph: core-components/steps/build-graph.zh.md

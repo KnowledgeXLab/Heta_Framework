@@ -22,3 +22,5 @@ heta-scifact-procedure-test/*
 heta-scifact-procedure-runs_hirag/*
 heta-scifact-procedure-runs_stale/*
 heta-scifact-procedure*
+docs/unified_graph_extraction_plan.md
+docs/unified_graph_extraction_implementation.md

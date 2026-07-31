@@ -58,18 +58,17 @@ src/heta_framework/kb/graphing/prompts.py
 | `ONTOLOGY_ENTITY_CONSTRAINT_PROMPT` | 根据 ontology schema 约束实体。 |
 | `ONTOLOGY_RELATION_CONSTRAINT_PROMPT` | 根据 ontology schema 约束关系。 |
 | `LIGHTRAG_RELATION_KEYWORDS_PROMPT` | 为 LightRAG 关系补充 keywords。 |
-| `LIGHTRAG_PROMPTS` | LightRAG legacy extraction step 的本地 prompt set。 |
+| `LIGHTRAG_PROMPTS` | LightRAG adapter 使用的本地 prompt set。 |
 | `HIRAG_PROMPTS` | HiRAG summary/community 等 prompt set。 |
 | `LEANRAG_PROMPTS` | LeanRAG aggregation prompt set。 |
 
-同时移除了以下 step 中从外部项目加载 prompt 的逻辑：
+同时移除了 legacy RAG-specific extraction step 中从外部项目加载 prompt 的逻辑：
 
-- `extract_lightrag_graph.py`
 - `hirag_hierarchical_aggregation.py`
 - `leanrag_semantic_aggregation.py`
 
 这些 step 现在只从 `heta_framework.kb.graphing.prompts` 获取 prompt。旧的
-`extract_hirag_graph.py` / `extract_leanrag_graph.py` 仅保留为兼容导出入口。
+legacy extract step 文件已删除，RAG procedure 统一使用 `ExtractUniversalGraph`。
 
 ## Step 1: ExtractUniversalGraph
 
@@ -87,8 +86,8 @@ ExtractUniversalGraphConfig
 ExtractUniversalGraphResult
 ```
 
-该 step 对 recipe/procedure 暴露为一个 step，并且不再复用旧的 `ExtractEntities`
-和 `ExtractRelations` step。实体抽取、关系抽取、解析、ID 生成、artifact 写入
+该 step 对 recipe/procedure 暴露为一个 step，并且不再复用旧的 `ExtractUniversalGraph`
+和 `ExtractUniversalGraph` step。实体抽取、关系抽取、解析、ID 生成、artifact 写入
 都直接内聚在 `ExtractUniversalGraph` 自身内部。
 
 内部顺序为：
@@ -132,11 +131,11 @@ LLM trace 标识：
 
 | 项目 | 旧组合方式 | 当前实现 |
 |---|---|---|
-| Recipe 可见 step | `ExtractEntities` + `ExtractRelations` | `ExtractUniversalGraph` |
-| 内部实现 | 调用旧 step | 直接实现 prompt 调用和解析 |
-| Entity artifact | 由 `ExtractEntities` 写入 | 由 `ExtractUniversalGraph` 写入 |
-| Relation artifact | 由 `ExtractRelations` 写入 | 由 `ExtractUniversalGraph` 写入 |
-| Trace step | `extract_entities` / `extract_relations` | `extract_universal_graph` |
+| Recipe 可见 step | 两个独立抽取 step | `ExtractUniversalGraph` |
+| 内部实现 | 分别调用 entity/relation 抽取 | 直接实现 prompt 调用和解析 |
+| Entity artifact | 由旧 entity step 写入 | 由 `ExtractUniversalGraph` 写入 |
+| Relation artifact | 由旧 relation step 写入 | 由 `ExtractUniversalGraph` 写入 |
+| Trace step | 两个旧 step name | `extract_universal_graph` |
 
 ## Step 2: ConstrainGraphByOntology
 
@@ -383,8 +382,8 @@ LeanRAG base relation 会补充：
 历史流程：
 
 ```text
-ExtractEntities
-  -> ExtractRelations
+ExtractUniversalGraph
+  -> ExtractUniversalGraph
   -> optional dedup
   -> BuildGraph / MergeGraphIntoStore
 ```

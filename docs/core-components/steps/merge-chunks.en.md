@@ -18,7 +18,7 @@ SplitDocuments
   -> IndexVectors
   -> MergeChunks
   -> RechunkDocuments
-  -> ExtractEntities
+  -> ExtractUniversalGraph
 ```
 
 It does not create a new user-facing query mode. Its purpose is to improve graph construction.

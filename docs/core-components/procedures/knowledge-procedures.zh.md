@@ -50,8 +50,8 @@ IndexVectors
 MergeChunks
 RechunkDocuments
 PersistChunks
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 DeduplicateEntities
 DeduplicateRelations
 BuildGraph / MergeGraphIntoStore
@@ -78,8 +78,8 @@ steps = [
 默认展开为：
 
 ```text
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 DeduplicateEntities
 DeduplicateRelations
 BuildGraph
@@ -117,8 +117,8 @@ steps = [
 默认展开为：
 
 ```text
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 DeduplicateEntities
 DeduplicateRelations
 MergeGraphIntoStore
@@ -169,8 +169,8 @@ steps = [
 展开为：
 
 ```text
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 BuildGraph
 ```
 

@@ -332,10 +332,10 @@ ParseDocuments
 EmbedChunks
     embeddings/{chunk_id}.json 已存在时复用。
 
-ExtractEntities
+ExtractUniversalGraph
     entities/{chunk_id}/*.json 已存在时复用。
 
-ExtractRelations
+ExtractUniversalGraph
     relations/{chunk_id}/*.json 已存在时复用。
 ```
 

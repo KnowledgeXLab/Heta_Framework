@@ -91,7 +91,7 @@ StepCapabilities(
 )
 ```
 
-它不直接解锁 query mode。它的主要作用是为后续 `PersistChunks`、`ExtractEntities` 和 `ExtractRelations` 提供更适合图谱抽取的文本边界。
+它不直接解锁 query mode。它的主要作用是为后续 `PersistChunks`、`ExtractUniversalGraph` 提供更适合图谱抽取的文本边界。
 
 ## Output
 

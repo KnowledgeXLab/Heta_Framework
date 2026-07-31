@@ -101,10 +101,9 @@ If you need entities, relations, and evidence provenance, add the Heta graph pro
 
 ```mermaid
 flowchart LR
-    Chunks[ParsedChunk] --> ExtractEntities[ExtractEntities]
-    Chunks --> ExtractRelations[ExtractRelations]
-    ExtractEntities --> DedupEntities[DeduplicateEntities]
-    ExtractRelations --> DedupRelations[DeduplicateRelations]
+    Chunks[ParsedChunk] --> ExtractUniversalGraph[ExtractUniversalGraph]
+    ExtractUniversalGraph --> DedupEntities[DeduplicateEntities]
+    ExtractUniversalGraph --> DedupRelations[DeduplicateRelations]
     DedupEntities --> BuildGraph[BuildGraph]
     DedupRelations --> BuildGraph
     BuildGraph --> GraphAssets[SQL graph tables + graph vectors]

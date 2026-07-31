@@ -29,14 +29,15 @@ Message = dict[str, str]
 NodeRecord = dict[str, Any]
 EdgeRecord = dict[str, Any]
 TraceRecord = dict[str, Any]
+_HIRAG_EXTRACTION_STEP_NAME = "hirag_hierarchical_aggregation"
 
 
 GRAPH_FIELD_SEP = HIRAG_GRAPH_FIELD_SEP
 
 
 @dataclass(frozen=True)
-class ExtractHiRAGGraphConfig:
-    """Configuration for HiRAG hierarchical graph extraction."""
+class _HiRAGGraphConfig:
+    """Internal settings shared by HiRAG hierarchy helper functions."""
 
     temperature: float = 0.0
     max_attempts: int = 3
@@ -101,86 +102,6 @@ class ExtractHiRAGGraphConfig:
         ):
             if name.strip() == "":
                 raise ValueError("artifact names must not be empty")
-
-
-@dataclass(frozen=True)
-class ExtractHiRAGGraphResult:
-    """Artifacts produced by ExtractHiRAGGraph."""
-
-    chunk_count: int
-    base_entity_count: int
-    base_relation_count: int
-    summary_entity_count: int
-    summary_relation_count: int
-    merged_entity_count: int
-    merged_relation_count: int
-    hierarchical_layer_count: int
-    failed_chunk_ids: tuple[str, ...]
-    node_keys: tuple[str, ...]
-    edge_keys: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class ExtractHiRAGBaseGraphConfig:
-    """Configuration for shared HiRAG two-stage base graph extraction."""
-
-    temperature: float = 0.0
-    max_attempts: int = 3
-    object_store: str | None = None
-    graph_store: str | None = None
-    language_model: str | None = None
-    chunk_keys_artifact: str = "chunk_keys"
-    result_artifact: str = "extract_hi_rag_base_graph_result"
-    chunks_artifact: str = "hi_rag_chunks"
-    base_entities_artifact: str = "hi_rag_base_entities"
-    base_relations_artifact: str = "hi_rag_base_relations"
-    graph_node_keys_artifact: str = "hi_rag_base_graph_node_keys"
-    graph_edge_keys_artifact: str = "hi_rag_base_graph_edge_keys"
-    extraction_trace_artifact: str = "hi_rag_base_extraction_trace"
-    graph_nodes_prefix: str = "hi_rag/base_graph/nodes"
-    graph_edges_prefix: str = "hi_rag/base_graph/edges"
-    entity_extract_max_gleaning: int = 1
-    entity_summary_to_max_tokens: int = 500
-    summary_llm_max_tokens: int = 1200
-    prompts: Mapping[str, Any] = field(default_factory=lambda: dict(HIRAG_PROMPTS))
-
-    def __post_init__(self) -> None:
-        validate_object_prefix(self.graph_nodes_prefix)
-        validate_object_prefix(self.graph_edges_prefix)
-        if self.max_attempts <= 0:
-            raise ValueError("max_attempts must be greater than zero")
-        if self.temperature < 0:
-            raise ValueError("temperature must not be negative")
-        if self.entity_extract_max_gleaning < 0:
-            raise ValueError("entity_extract_max_gleaning must not be negative")
-        if self.entity_summary_to_max_tokens <= 0:
-            raise ValueError("entity_summary_to_max_tokens must be greater than zero")
-        if self.summary_llm_max_tokens <= 0:
-            raise ValueError("summary_llm_max_tokens must be greater than zero")
-        for name in (
-            self.chunk_keys_artifact,
-            self.result_artifact,
-            self.chunks_artifact,
-            self.base_entities_artifact,
-            self.base_relations_artifact,
-            self.graph_node_keys_artifact,
-            self.graph_edge_keys_artifact,
-            self.extraction_trace_artifact,
-        ):
-            if name.strip() == "":
-                raise ValueError("artifact names must not be empty")
-
-
-@dataclass(frozen=True)
-class ExtractHiRAGBaseGraphResult:
-    """Artifacts produced by ExtractHiRAGBaseGraph."""
-
-    chunk_count: int
-    base_entity_count: int
-    base_relation_count: int
-    failed_chunk_ids: tuple[str, ...]
-    node_keys: tuple[str, ...]
-    edge_keys: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -263,455 +184,6 @@ class _ChunkExtraction:
     edges: Mapping[tuple[str, str], list[EdgeRecord]]
     trace: TraceRecord
     failed: bool = False
-
-
-class ExtractHiRAGGraph:
-    """Run HiRAG two-stage extraction and hierarchical attribute-entity construction."""
-
-    name = "extract_hirag_graph"
-
-    def __init__(self, config: ExtractHiRAGGraphConfig | None = None) -> None:
-        self.config = config or ExtractHiRAGGraphConfig()
-
-    @property
-    def requirements(self) -> StepRequirements:
-        return StepRequirements(
-            components=frozenset(
-                {
-                    store_ref("objects", self.config.object_store),
-                    store_ref("graph", self.config.graph_store),
-                    model_ref("language", self.config.language_model),
-                    model_ref("embedding", self.config.embedding_model),
-                }
-            ),
-            artifacts=frozenset({self.config.chunk_keys_artifact}),
-        )
-
-    @property
-    def capabilities(self) -> StepCapabilities:
-        return StepCapabilities(
-            artifacts=frozenset(
-                {
-                    self.config.result_artifact,
-                    self.config.chunks_artifact,
-                    self.config.base_entities_artifact,
-                    self.config.base_relations_artifact,
-                    self.config.hierarchical_layers_artifact,
-                    self.config.summary_entities_artifact,
-                    self.config.summary_relations_artifact,
-                    self.config.graph_node_keys_artifact,
-                    self.config.graph_edge_keys_artifact,
-                    self.config.extraction_trace_artifact,
-                }
-            )
-        )
-
-    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
-        component = store_ref("objects", self.config.object_store).key
-        return StepCleanupPlan(
-            object_key_targets(
-                artifacts,
-                self.config.graph_node_keys_artifact,
-                component=component,
-            )
-            + object_key_targets(
-                artifacts,
-                self.config.graph_edge_keys_artifact,
-                component=component,
-            )
-        )
-
-    async def run(self, context: StepContextProtocol) -> None:
-        object_store = _require_object_store(
-            context.get_component(store_ref("objects", self.config.object_store).key)
-        )
-        graph_store = _require_graph_store(
-            context.get_component(store_ref("graph", self.config.graph_store).key)
-        )
-        language_model = _require_language_model(
-            context.get_component(model_ref("language", self.config.language_model).key)
-        )
-        embedding_model = _require_embedding_model(
-            context.get_component(model_ref("embedding", self.config.embedding_model).key)
-        )
-
-        chunk_keys = tuple(context.get_artifact(self.config.chunk_keys_artifact))
-        chunks = [ParsedChunk.from_json(await object_store.get(key)) for key in chunk_keys]
-
-        entity_results = await asyncio.gather(
-            *(
-                self._process_single_content_entity(chunk, language_model=language_model)
-                for chunk in chunks
-            )
-        )
-
-        context_entities = {
-            chunk.chunk_id: list(result.nodes.keys())
-            for chunk, result in zip(chunks, entity_results, strict=True)
-            if not result.failed
-        }
-        all_base_entities = _first_records_by_name(
-            record
-            for result in entity_results
-            for records in result.nodes.values()
-            for record in records
-        )
-        await _attach_embeddings(
-            all_base_entities,
-            embedding_model,
-            purpose="hi_rag_base_entity_clustering",
-        )
-
-        relation_results = await asyncio.gather(
-            *(
-                self._process_single_content_relation(
-                    chunk,
-                    entities=context_entities.get(chunk.chunk_id, ()),
-                    language_model=language_model,
-                )
-                for chunk in chunks
-            )
-        )
-
-        base_nodes: defaultdict[str, list[NodeRecord]] = defaultdict(list)
-        base_edges: defaultdict[tuple[str, str], list[EdgeRecord]] = defaultdict(list)
-        failed_chunk_ids: list[str] = []
-        trace: list[TraceRecord] = []
-
-        for chunk, entity_result, relation_result in zip(
-            chunks, entity_results, relation_results, strict=True
-        ):
-            if entity_result.failed or relation_result.failed:
-                failed_chunk_ids.append(chunk.chunk_id)
-            trace.extend([entity_result.trace, relation_result.trace])
-            for name, records in entity_result.nodes.items():
-                base_nodes[name].extend(records)
-            for endpoints, records in relation_result.edges.items():
-                base_edges[tuple(sorted(endpoints))].extend(records)
-
-        hierarchical = await _perform_hierarchical_clustering(
-            list(all_base_entities.values()),
-            language_model=language_model,
-            embedding_model=embedding_model,
-            config=self.config,
-        )
-
-        maybe_nodes: defaultdict[str, list[NodeRecord]] = defaultdict(list)
-        maybe_edges: defaultdict[tuple[str, str], list[EdgeRecord]] = defaultdict(list)
-        for name, records in base_nodes.items():
-            maybe_nodes[name].extend(records)
-        for endpoints, records in base_edges.items():
-            maybe_edges[endpoints].extend(records)
-        for record in hierarchical["summary_entities"]:
-            maybe_nodes[str(record["entity_name"])].append(record)
-        for record in hierarchical["summary_relations"]:
-            maybe_edges[tuple(sorted((str(record["src_id"]), str(record["tgt_id"]))))].append(record)
-
-        graph_nodes = await asyncio.gather(
-            *(
-                _merge_node_then_upsert(
-                    entity_name,
-                    records,
-                    graph_store,
-                    language_model=language_model,
-                    config=self.config,
-                )
-                for entity_name, records in maybe_nodes.items()
-            )
-        )
-        maybe_graph_edges = await asyncio.gather(
-            *(
-                _merge_edge_then_upsert(
-                    endpoints[0],
-                    endpoints[1],
-                    records,
-                    graph_store,
-                    language_model=language_model,
-                    config=self.config,
-                )
-                for endpoints, records in maybe_edges.items()
-            )
-        )
-        graph_edges = [edge for edge in maybe_graph_edges if edge is not None]
-
-        node_keys = tuple(
-            await asyncio.gather(
-                *(_put_graph_node(object_store, self.config, node) for node in graph_nodes)
-            )
-        )
-        edge_keys = tuple(
-            await asyncio.gather(
-                *(_put_graph_edge(object_store, self.config, edge) for edge in graph_edges)
-            )
-        )
-
-        result = ExtractHiRAGGraphResult(
-            chunk_count=len(chunks),
-            base_entity_count=sum(len(records) for records in base_nodes.values()),
-            base_relation_count=sum(len(records) for records in base_edges.values()),
-            summary_entity_count=len(hierarchical["summary_entities"]),
-            summary_relation_count=len(hierarchical["summary_relations"]),
-            merged_entity_count=len(graph_nodes),
-            merged_relation_count=len(graph_edges),
-            hierarchical_layer_count=len(hierarchical["layers"]),
-            failed_chunk_ids=tuple(dict.fromkeys(failed_chunk_ids)),
-            node_keys=node_keys,
-            edge_keys=edge_keys,
-        )
-
-        context.set_artifact(self.config.result_artifact, result)
-        context.set_artifact(self.config.chunks_artifact, [_chunk_trace(chunk) for chunk in chunks])
-        context.set_artifact(
-            self.config.base_entities_artifact,
-            [record for records in base_nodes.values() for record in records],
-        )
-        context.set_artifact(
-            self.config.base_relations_artifact,
-            [record for records in base_edges.values() for record in records],
-        )
-        context.set_artifact(self.config.hierarchical_layers_artifact, hierarchical["layers"])
-        context.set_artifact(self.config.summary_entities_artifact, hierarchical["summary_entities"])
-        context.set_artifact(self.config.summary_relations_artifact, hierarchical["summary_relations"])
-        context.set_artifact(self.config.graph_node_keys_artifact, node_keys)
-        context.set_artifact(self.config.graph_edge_keys_artifact, edge_keys)
-        context.set_artifact(self.config.extraction_trace_artifact, trace + hierarchical["trace"])
-
-    async def _process_single_content_entity(
-        self,
-        chunk: ParsedChunk,
-        *,
-        language_model: LanguageModelProtocol,
-    ) -> _ChunkExtraction:
-        prompts = self.config.prompts
-        context_base = _context_base(prompts, entity_types=",".join(prompts["META_ENTITY_TYPES"]))
-        prompt = str(prompts["hi_entity_extraction"].format(**context_base, input_text=chunk.text))
-        final_result, glean_count, failed = await _run_hirag_gleaning(
-            prompt,
-            chunk=chunk,
-            stage="hi_entity_extraction",
-            language_model=language_model,
-            config=self.config,
-        )
-        if failed:
-            return _ChunkExtraction(
-                nodes={},
-                edges={},
-                failed=True,
-                trace=_flow_trace(chunk, "hi_entity_extraction", prompt, final_result, [], [], glean_count, True),
-            )
-        parsed = _parse_hirag_records(final_result, chunk.chunk_id, self.config, layer=0)
-        return _ChunkExtraction(
-            nodes=parsed.nodes,
-            edges=parsed.edges,
-            trace=_flow_trace(
-                chunk,
-                "hi_entity_extraction",
-                prompt,
-                final_result,
-                [record for records in parsed.nodes.values() for record in records],
-                [record for records in parsed.edges.values() for record in records],
-                glean_count,
-                False,
-            ),
-        )
-
-    async def _process_single_content_relation(
-        self,
-        chunk: ParsedChunk,
-        *,
-        entities: Iterable[str],
-        language_model: LanguageModelProtocol,
-    ) -> _ChunkExtraction:
-        prompts = self.config.prompts
-        context_base = _context_base(prompts, entities=",".join(entities))
-        prompt = str(prompts["hi_relation_extraction"].format(**context_base, input_text=chunk.text))
-        final_result, glean_count, failed = await _run_hirag_gleaning(
-            prompt,
-            chunk=chunk,
-            stage="hi_relation_extraction",
-            language_model=language_model,
-            config=self.config,
-        )
-        if failed:
-            return _ChunkExtraction(
-                nodes={},
-                edges={},
-                failed=True,
-                trace=_flow_trace(chunk, "hi_relation_extraction", prompt, final_result, [], [], glean_count, True),
-            )
-        parsed = _parse_hirag_records(final_result, chunk.chunk_id, self.config, layer=0)
-        return _ChunkExtraction(
-            nodes=parsed.nodes,
-            edges=parsed.edges,
-            trace={
-                **_flow_trace(
-                    chunk,
-                    "hi_relation_extraction",
-                    prompt,
-                    final_result,
-                    [record for records in parsed.nodes.values() for record in records],
-                    [record for records in parsed.edges.values() for record in records],
-                    glean_count,
-                    False,
-                ),
-                "entity_list": list(entities),
-            },
-        )
-
-
-class ExtractHiRAGBaseGraph:
-    """Run the shared HiRAG two-stage base entity/relation extraction only."""
-
-    name = "extract_hirag_base_graph"
-
-    def __init__(self, config: ExtractHiRAGBaseGraphConfig | None = None) -> None:
-        self.config = config or ExtractHiRAGBaseGraphConfig()
-        self._delegate_config = _base_to_hirag_config(self.config)
-        self._delegate = ExtractHiRAGGraph(self._delegate_config)
-
-    @property
-    def requirements(self) -> StepRequirements:
-        return StepRequirements(
-            components=frozenset(
-                {
-                    store_ref("objects", self.config.object_store),
-                    store_ref("graph", self.config.graph_store),
-                    model_ref("language", self.config.language_model),
-                }
-            ),
-            artifacts=frozenset({self.config.chunk_keys_artifact}),
-        )
-
-    @property
-    def capabilities(self) -> StepCapabilities:
-        return StepCapabilities(
-            artifacts=frozenset(
-                {
-                    self.config.result_artifact,
-                    self.config.chunks_artifact,
-                    self.config.base_entities_artifact,
-                    self.config.base_relations_artifact,
-                    self.config.graph_node_keys_artifact,
-                    self.config.graph_edge_keys_artifact,
-                    self.config.extraction_trace_artifact,
-                }
-            )
-        )
-
-    def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
-        return self._delegate.cleanup_plan(artifacts)
-
-    async def run(self, context: StepContextProtocol) -> None:
-        object_store = _require_object_store(
-            context.get_component(store_ref("objects", self.config.object_store).key)
-        )
-        graph_store = _require_graph_store(
-            context.get_component(store_ref("graph", self.config.graph_store).key)
-        )
-        language_model = _require_language_model(
-            context.get_component(model_ref("language", self.config.language_model).key)
-        )
-
-        chunk_keys = tuple(context.get_artifact(self.config.chunk_keys_artifact))
-        chunks = [ParsedChunk.from_json(await object_store.get(key)) for key in chunk_keys]
-
-        entity_results = await asyncio.gather(
-            *(
-                self._delegate._process_single_content_entity(chunk, language_model=language_model)
-                for chunk in chunks
-            )
-        )
-        context_entities = {
-            chunk.chunk_id: list(result.nodes.keys())
-            for chunk, result in zip(chunks, entity_results, strict=True)
-            if not result.failed
-        }
-        relation_results = await asyncio.gather(
-            *(
-                self._delegate._process_single_content_relation(
-                    chunk,
-                    entities=context_entities.get(chunk.chunk_id, ()),
-                    language_model=language_model,
-                )
-                for chunk in chunks
-            )
-        )
-
-        base_nodes: defaultdict[str, list[NodeRecord]] = defaultdict(list)
-        base_edges: defaultdict[tuple[str, str], list[EdgeRecord]] = defaultdict(list)
-        failed_chunk_ids: list[str] = []
-        trace: list[TraceRecord] = []
-        for chunk, entity_result, relation_result in zip(
-            chunks, entity_results, relation_results, strict=True
-        ):
-            if entity_result.failed or relation_result.failed:
-                failed_chunk_ids.append(chunk.chunk_id)
-            trace.extend([entity_result.trace, relation_result.trace])
-            for name, records in entity_result.nodes.items():
-                base_nodes[name].extend(records)
-            for endpoints, records in relation_result.edges.items():
-                base_edges[tuple(sorted(endpoints))].extend(records)
-
-        graph_nodes = await asyncio.gather(
-            *(
-                _merge_node_then_upsert(
-                    entity_name,
-                    records,
-                    graph_store,
-                    language_model=language_model,
-                    config=self._delegate_config,
-                )
-                for entity_name, records in base_nodes.items()
-            )
-        )
-        maybe_graph_edges = await asyncio.gather(
-            *(
-                _merge_edge_then_upsert(
-                    endpoints[0],
-                    endpoints[1],
-                    records,
-                    graph_store,
-                    language_model=language_model,
-                    config=self._delegate_config,
-                )
-                for endpoints, records in base_edges.items()
-            )
-        )
-        graph_edges = [edge for edge in maybe_graph_edges if edge is not None]
-        node_keys = tuple(
-            await asyncio.gather(
-                *(_put_graph_node(object_store, self._delegate_config, node) for node in graph_nodes)
-            )
-        )
-        edge_keys = tuple(
-            await asyncio.gather(
-                *(_put_graph_edge(object_store, self._delegate_config, edge) for edge in graph_edges)
-            )
-        )
-
-        context.set_artifact(
-            self.config.result_artifact,
-            ExtractHiRAGBaseGraphResult(
-                chunk_count=len(chunks),
-                base_entity_count=sum(len(records) for records in base_nodes.values()),
-                base_relation_count=sum(len(records) for records in base_edges.values()),
-                failed_chunk_ids=tuple(dict.fromkeys(failed_chunk_ids)),
-                node_keys=node_keys,
-                edge_keys=edge_keys,
-            ),
-        )
-        context.set_artifact(self.config.chunks_artifact, [_chunk_trace(chunk) for chunk in chunks])
-        context.set_artifact(
-            self.config.base_entities_artifact,
-            [record for records in base_nodes.values() for record in records],
-        )
-        context.set_artifact(
-            self.config.base_relations_artifact,
-            [record for records in base_edges.values() for record in records],
-        )
-        context.set_artifact(self.config.graph_node_keys_artifact, node_keys)
-        context.set_artifact(self.config.graph_edge_keys_artifact, edge_keys)
-        context.set_artifact(self.config.extraction_trace_artifact, trace)
 
 
 class HiRAGHierarchicalAggregation:
@@ -875,37 +347,8 @@ class HiRAGHierarchicalAggregation:
         context.set_artifact(self.config.extraction_trace_artifact, trace + hierarchical["trace"])
 
 
-def _base_to_hirag_config(config: ExtractHiRAGBaseGraphConfig) -> ExtractHiRAGGraphConfig:
-    return ExtractHiRAGGraphConfig(
-        temperature=config.temperature,
-        max_attempts=config.max_attempts,
-        object_store=config.object_store,
-        graph_store=config.graph_store,
-        language_model=config.language_model,
-        embedding_model=None,
-        chunk_keys_artifact=config.chunk_keys_artifact,
-        result_artifact=config.result_artifact,
-        chunks_artifact=config.chunks_artifact,
-        base_entities_artifact=config.base_entities_artifact,
-        base_relations_artifact=config.base_relations_artifact,
-        hierarchical_layers_artifact="_unused_hi_rag_hierarchical_layers",
-        summary_entities_artifact="_unused_hi_rag_summary_entities",
-        summary_relations_artifact="_unused_hi_rag_summary_relations",
-        graph_node_keys_artifact=config.graph_node_keys_artifact,
-        graph_edge_keys_artifact=config.graph_edge_keys_artifact,
-        extraction_trace_artifact=config.extraction_trace_artifact,
-        graph_nodes_prefix=config.graph_nodes_prefix,
-        graph_edges_prefix=config.graph_edges_prefix,
-        entity_extract_max_gleaning=config.entity_extract_max_gleaning,
-        entity_summary_to_max_tokens=config.entity_summary_to_max_tokens,
-        summary_llm_max_tokens=config.summary_llm_max_tokens,
-        hierarchical_layers=0,
-        prompts=config.prompts,
-    )
-
-
-def _hierarchy_to_hirag_config(config: HiRAGHierarchicalAggregationConfig) -> ExtractHiRAGGraphConfig:
-    return ExtractHiRAGGraphConfig(
+def _hierarchy_to_hirag_config(config: HiRAGHierarchicalAggregationConfig) -> _HiRAGGraphConfig:
+    return _HiRAGGraphConfig(
         temperature=config.temperature,
         object_store=config.object_store,
         graph_store=config.graph_store,
@@ -944,7 +387,7 @@ async def _run_hirag_gleaning(
     chunk: ParsedChunk,
     stage: str,
     language_model: LanguageModelProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> tuple[str, int, bool]:
     final_result = await _invoke_text(
         prompt,
@@ -1011,7 +454,7 @@ async def _invoke_text(
     chunk: ParsedChunk,
     stage: str,
     language_model: LanguageModelProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> str | None:
     last_error = ""
     for attempt in range(config.max_attempts):
@@ -1028,7 +471,7 @@ async def _invoke_text(
                     prompt=_messages_to_prompt(messages),
                     options=ModelOptions(temperature=config.temperature),
                     trace_context={
-                        "step": ExtractHiRAGGraph.name,
+                        "step": _HIRAG_EXTRACTION_STEP_NAME,
                         "stage": stage,
                         "chunk_id": chunk.chunk_id,
                         "attempt": attempt + 1,
@@ -1064,7 +507,7 @@ def _messages_to_prompt(messages: Iterable[Message]) -> str:
 def _parse_hirag_records(
     content: str,
     chunk_key: str,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
     *,
     layer: int,
     cluster_id: str | None = None,
@@ -1186,7 +629,7 @@ async def _perform_hierarchical_clustering(
     *,
     language_model: LanguageModelProtocol,
     embedding_model: EmbeddingModelProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> dict[str, list[dict[str, Any]]]:
     if not entities or config.hierarchical_layers == 0:
         return {"layers": [], "summary_entities": [], "summary_relations": [], "trace": []}
@@ -1303,7 +746,7 @@ async def _perform_hierarchical_clustering(
 
 def _cluster_assignments(
     nodes: list[NodeRecord],
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> tuple[list[list[int]], str, dict[str, Any]]:
     if config.clustering_backend == "deterministic":
         return _deterministic_cluster_assignments(nodes), "deterministic", {}
@@ -1409,7 +852,7 @@ async def _summarize_cluster(
     cluster_id: str,
     language_model: LanguageModelProtocol,
     embedding_model: EmbeddingModelProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> _ChunkExtraction:
     prompts = config.prompts
     context_base = _context_base(
@@ -1450,7 +893,7 @@ async def _invoke_summary(
     prompt: str,
     *,
     language_model: LanguageModelProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
     layer: int,
     cluster_id: str,
 ) -> str:
@@ -1459,7 +902,7 @@ async def _invoke_summary(
             prompt=prompt,
             options=ModelOptions(temperature=config.temperature),
             trace_context={
-                "step": ExtractHiRAGGraph.name,
+                "step": _HIRAG_EXTRACTION_STEP_NAME,
                 "stage": "summary_clusters",
                 "layer": layer,
                 "cluster_id": cluster_id,
@@ -1481,7 +924,7 @@ async def _attach_embeddings(
     result = await embedding_model.embed(
         EmbeddingRequest(
             texts=[str(node.get("description") or "") for node in node_list],
-            trace_context={"step": ExtractHiRAGGraph.name, "purpose": purpose},
+            trace_context={"step": _HIRAG_EXTRACTION_STEP_NAME, "purpose": purpose},
         )
     )
     if len(result.vectors) != len(node_list):
@@ -1496,7 +939,7 @@ async def _merge_node_then_upsert(
     graph_store: GraphStoreProtocol,
     *,
     language_model: LanguageModelProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> GraphNode:
     existing_types: list[str] = []
     existing_source_ids: list[str] = []
@@ -1564,7 +1007,7 @@ async def _merge_edge_then_upsert(
     graph_store: GraphStoreProtocol,
     *,
     language_model: LanguageModelProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> GraphEdge | None:
     if source_id == target_id or not edges_data:
         return None
@@ -1654,7 +1097,7 @@ async def _handle_entity_relation_summary(
     description: str,
     *,
     language_model: LanguageModelProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> str:
     tokens = description.split()
     if len(tokens) <= config.entity_summary_to_max_tokens:
@@ -1673,7 +1116,7 @@ async def _handle_entity_relation_summary(
                 max_output_tokens=config.entity_summary_to_max_tokens,
             ),
             trace_context={
-                "step": ExtractHiRAGGraph.name,
+                "step": _HIRAG_EXTRACTION_STEP_NAME,
                 "stage": "merge_summary",
                 "summary_target": str(entity_or_relation_name),
             },
@@ -1684,7 +1127,7 @@ async def _handle_entity_relation_summary(
 
 async def _put_graph_node(
     object_store: ObjectStoreProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
     node: GraphNode,
 ) -> str:
     key = join_object_key(config.graph_nodes_prefix, f"{_stable_object_id(node.id)}.json")
@@ -1697,7 +1140,7 @@ async def _put_graph_node(
 
 async def _put_graph_edge(
     object_store: ObjectStoreProtocol,
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
     edge: GraphEdge,
 ) -> str:
     key = join_object_key(config.graph_edges_prefix, f"{_stable_object_id(edge.id)}.json")
@@ -1799,7 +1242,7 @@ def _dedupe_nodes(nodes: Iterable[NodeRecord]) -> list[NodeRecord]:
 
 def _fit_cluster_token_budget(
     cluster_nodes: list[NodeRecord],
-    config: ExtractHiRAGGraphConfig,
+    config: _HiRAGGraphConfig,
 ) -> tuple[list[NodeRecord], dict[str, Any]]:
     sampled = list(cluster_nodes)
     total_length = _cluster_text_length(sampled)
