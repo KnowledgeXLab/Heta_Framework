@@ -355,6 +355,10 @@ async def _aggregate_cluster(
     )
     data = parse_aggregate_response(response)
     source_ids = _unique(source_id for node in cluster_nodes for source_id in _source_ids(node))
+    documents = _unique(document for node in cluster_nodes for document in _documents(node))
+    document_names = _merge_document_names(cluster_nodes)
+    document_tokens = _merge_document_tokens(cluster_nodes)
+    document_details = _document_details(documents, document_names, document_tokens)
     community = {
         "entity_name": str(data.get("entity_name", "")).strip() or f"Aggregate Layer {layer}",
         "entity_description": str(data.get("entity_description", "")).strip(),
@@ -363,12 +367,22 @@ async def _aggregate_cluster(
         "children": child_names,
         "source_id": "|".join(source_ids),
         "source_ids": source_ids,
+        "documents": documents,
+        "document_names": document_names,
+        "document_details": document_details,
+        "document_tokens": document_tokens,
+        "document_token_count": sum(document_tokens.values()),
     }
     temp_node = {
         "entity_name": community["entity_name"],
         "description": community["entity_description"],
         "source_id": community["source_id"],
         "source_ids": source_ids,
+        "documents": documents,
+        "document_names": document_names,
+        "document_details": document_details,
+        "document_tokens": document_tokens,
+        "document_token_count": community["document_token_count"],
         "entity_type": entity_type,
         "degree": 1,
         "parent": "",
@@ -762,6 +776,71 @@ def _source_ids(record: Mapping[str, Any]) -> list[str]:
     if source_id:
         values.extend(source_id.split("|"))
     return _unique(value.strip() for value in values)
+
+
+def _documents(record: Mapping[str, Any]) -> list[str]:
+    documents = record.get("documents", ())
+    values: list[str] = []
+    if isinstance(documents, str):
+        values.extend(documents.split("|"))
+    elif isinstance(documents, Iterable):
+        values.extend(str(item) for item in documents)
+    return _unique(value.strip() for value in values)
+
+
+def _merge_document_tokens(records: Iterable[Mapping[str, Any]]) -> dict[str, int]:
+    tokens: dict[str, int] = {}
+    for record in records:
+        raw = record.get("document_tokens") or {}
+        if isinstance(raw, Mapping):
+            for document_id, count in raw.items():
+                key = str(document_id)
+                tokens[key] = max(tokens.get(key, 0), int(count or 0))
+        for document_id in _documents(record):
+            tokens.setdefault(document_id, 0)
+    return {document_id: tokens[document_id] for document_id in _unique(tokens.keys())}
+
+
+def _merge_document_names(records: Iterable[Mapping[str, Any]]) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for record in records:
+        raw = record.get("document_names") or {}
+        if isinstance(raw, Mapping):
+            for document_id, name in raw.items():
+                key = str(document_id)
+                value = str(name)
+                if value and key not in names:
+                    names[key] = value
+        for detail in _document_details_from_record(record):
+            document_id = str(detail.get("document_id") or "")
+            name = str(detail.get("document_name") or "")
+            if document_id and name and document_id not in names:
+                names[document_id] = name
+        for document_id in _documents(record):
+            names.setdefault(document_id, "")
+    return {document_id: names[document_id] for document_id in _unique(names.keys())}
+
+
+def _document_details(
+    documents: list[str],
+    document_names: Mapping[str, str],
+    document_tokens: Mapping[str, int],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "document_id": document_id,
+            "document_name": str(document_names.get(document_id, "")),
+            "document_token_count": int(document_tokens.get(document_id, 0)),
+        }
+        for document_id in documents
+    ]
+
+
+def _document_details_from_record(record: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    raw = record.get("document_details") or []
+    if not isinstance(raw, Iterable) or isinstance(raw, str):
+        return []
+    return [item for item in raw if isinstance(item, Mapping)]
 
 
 def _unique(values: Iterable[str]) -> list[str]:

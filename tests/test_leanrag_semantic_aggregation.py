@@ -94,6 +94,10 @@ def _entity(index: int) -> dict:
         "parent": "",
         "level": 0,
         "is_aggregate": False,
+        "documents": [f"doc_{index}"],
+        "document_names": {f"doc_{index}": f"doc_{index}.txt"},
+        "document_tokens": {f"doc_{index}": index + 1},
+        "document_token_count": index + 1,
     }
 
 
@@ -203,5 +207,13 @@ def test_root_aggregate_behavior_and_export():
     assert result.root_entity_name == "ROOT"
     assert all_layers[-1]["entity_name"] == "ROOT"
     assert all_layers[-1]["parent"] == "root"
+    assert all_layers[-1]["documents"] == [f"doc_{index}" for index in range(10)]
+    assert all_layers[-1]["document_names"]["doc_0"] == "doc_0.txt"
+    assert all_layers[-1]["document_details"][0] == {
+        "document_id": "doc_0",
+        "document_name": "doc_0.txt",
+        "document_token_count": 1,
+    }
+    assert all_layers[-1]["document_token_count"] == sum(range(1, 11))
     assert all_layers[-2][0]["parent"] == "ROOT"
     assert export_all_entities_json_lines(all_layers).splitlines()[-1].startswith('{"entity_name": "ROOT"')

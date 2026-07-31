@@ -92,7 +92,9 @@ def test_parse_documents_declares_requirements_and_capabilities():
         "stores.objects",
         "parsers.documents",
     }
-    assert step.capabilities.artifacts == frozenset({"parse_documents_result", "parsed_document_keys"})
+    assert step.capabilities.artifacts == frozenset(
+        {"parse_documents_result", "parsed_document_keys", "document_token_counts"}
+    )
 
 
 def test_parse_documents_writes_parsed_documents(tmp_path):
@@ -128,6 +130,8 @@ def test_parse_documents_writes_parsed_documents(tmp_path):
     assert document.source.name == "readme.md"
     assert document.source.file_type == "md"
     assert document.pages[0].text == "# Heta\n\nParser step"
+    assert result.document_token_counts == context.artifacts["document_token_counts"]
+    assert context.artifacts["document_token_counts"][document.document_id] > 0
 
 
 def test_parse_documents_reuses_existing_parsed_document(tmp_path):

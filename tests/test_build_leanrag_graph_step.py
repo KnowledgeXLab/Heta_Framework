@@ -9,6 +9,7 @@ from heta_framework.common.models import EmbeddingRequest, EmbeddingResult  # no
 from heta_framework.common.stores import (  # noqa: E402
     InMemoryGraphStore,
     InMemoryVectorStore,
+    LocalObjectStore,
     SQLStore,
     VectorQuery,
 )
@@ -62,10 +63,11 @@ def _config():
     )
 
 
-def _context():
+def _context(tmp_path):
     return FakeContext(
         {
             "stores.graph": InMemoryGraphStore(),
+            "stores.objects": LocalObjectStore(tmp_path),
             "stores.sql": SQLStore("sqlite:///:memory:"),
             "stores.vector": InMemoryVectorStore(),
             "models.embedding": FakeEmbeddingModel(),
@@ -123,6 +125,10 @@ def _put_artifacts(context):
                     "parent": "Alice Group",
                     "level": 0,
                     "is_aggregate": False,
+                    "documents": ["doc_1"],
+                    "document_names": {"doc_1": "alice.txt"},
+                    "document_tokens": {"doc_1": 50},
+                    "document_token_count": 50,
                 },
                 {
                     "entity_name": "Bob",
@@ -134,6 +140,10 @@ def _put_artifacts(context):
                     "parent": "Alice Group",
                     "level": 0,
                     "is_aggregate": False,
+                    "documents": ["doc_1"],
+                    "document_names": {"doc_1": "alice.txt"},
+                    "document_tokens": {"doc_1": 50},
+                    "document_token_count": 50,
                 },
             ],
             [
@@ -149,6 +159,10 @@ def _put_artifacts(context):
                     "is_aggregate": True,
                     "children": ["Alice", "Bob"],
                     "findings": [{"summary": "Link", "explanation": "They are linked."}],
+                    "documents": ["doc_1"],
+                    "document_names": {"doc_1": "alice.txt"},
+                    "document_tokens": {"doc_1": 50},
+                    "document_token_count": 50,
                 }
             ],
         ],
@@ -180,6 +194,10 @@ def _put_artifacts(context):
                 "children": ["Alice", "Bob"],
                 "source_id": "hash_1",
                 "source_ids": ["hash_1"],
+                "documents": ["doc_1"],
+                "document_names": {"doc_1": "alice.txt"},
+                "document_tokens": {"doc_1": 50},
+                "document_token_count": 50,
             }
         ],
     )
@@ -199,6 +217,7 @@ def test_build_leanrag_graph_declares_capabilities():
     assert step.name == "build_leanrag_graph"
     assert {ref.key for ref in step.requirements.components} == {
         "stores.graph",
+        "stores.objects",
         "stores.sql",
         "stores.vector",
         "models.embedding",
@@ -210,13 +229,14 @@ def test_build_leanrag_graph_declares_capabilities():
     ]
 
 
-def test_build_leanrag_graph_writes_sql_vectors_graph_and_exports():
-    context = _context()
+def test_build_leanrag_graph_writes_sql_vectors_graph_and_exports(tmp_path):
+    context = _context(tmp_path)
     _put_artifacts(context)
 
     async def run():
         await BuildLeanRAGGraph(_config()).run(context)
         sql_store = context.components["stores.sql"]
+        object_store = context.components["stores.objects"]
         vector_store = context.components["stores.vector"]
         graph_store = context.components["stores.graph"]
         entity_rows = await sql_store.fetch_all("SELECT * FROM test_lean_entities ORDER BY level, entity_name")
@@ -242,6 +262,8 @@ def test_build_leanrag_graph_writes_sql_vectors_graph_and_exports():
             ),
             None,
         )
+        hierarchy_key = context.artifacts["lean_rag_hierarchy_graph_key"]
+        hierarchy_file = json.loads((await object_store.get(hierarchy_key)).decode("utf-8"))
         return (
             entity_rows,
             relation_rows,
@@ -251,6 +273,9 @@ def test_build_leanrag_graph_writes_sql_vectors_graph_and_exports():
             aggregate_hits,
             base_hits,
             parent,
+            context.artifacts["lean_rag_hierarchy_graph"],
+            hierarchy_key,
+            hierarchy_file,
         )
 
     (
@@ -262,6 +287,9 @@ def test_build_leanrag_graph_writes_sql_vectors_graph_and_exports():
         aggregate_hits,
         base_hits,
         parent,
+        hierarchy_graph,
+        hierarchy_key,
+        hierarchy_file,
     ) = asyncio.run(run())
 
     assert len(entity_rows) == 3
@@ -275,7 +303,33 @@ def test_build_leanrag_graph_writes_sql_vectors_graph_and_exports():
     assert vector_count == 3
     assert [hit.metadata["entity_name"] for hit in aggregate_hits] == ["Alice Group"]
     assert {hit.metadata["entity_name"] for hit in base_hits} == {"Alice", "Bob"}
+    assert aggregate_hits[0].metadata["document_tokens"] == {"doc_1": 50}
+    assert aggregate_hits[0].metadata["document_names"] == {"doc_1": "alice.txt"}
     assert parent is not None
+    assert hierarchy_graph["document_token_count"] == 50
+    assert hierarchy_graph["document_names"] == {"doc_1": "alice.txt"}
+    assert hierarchy_graph["document_details"] == [
+        {"document_id": "doc_1", "document_name": "alice.txt", "document_token_count": 50}
+    ]
+    assert [node["level"] for node in hierarchy_graph["nodes"]] == [1, 0, 0]
+    assert hierarchy_graph["nodes"][0]["entity_name"] == "Alice Group"
+    assert set(hierarchy_graph["nodes"][0]) == {
+        "entity_name",
+        "entity_type",
+        "description",
+        "level",
+        "document_details",
+        "children",
+    }
+    assert hierarchy_graph["nodes"][0]["document_details"] == [
+        {"document_id": "doc_1", "document_name": "alice.txt", "document_token_count": 50}
+    ]
+    assert [edge["level"] for edge in hierarchy_graph["edges"]] == [1, 0, 0]
+    assert hierarchy_key == "lean_rag/exports/hierarchy_graph.json"
+    assert hierarchy_file["document_token_count"] == 50
+    assert hierarchy_file["document_names"] == {"doc_1": "alice.txt"}
+    assert [node["level"] for node in hierarchy_file["nodes"]] == [1, 0, 0]
     assert context.artifacts["lean_rag_all_entities_json"].splitlines()[0].startswith("[")
     assert context.artifacts["lean_rag_generate_relations_json"].startswith("{")
     assert context.artifacts["lean_rag_community_json"].startswith("{")
+    assert context.artifacts["lean_rag_hierarchy_graph_json"].startswith('{"nodes"')

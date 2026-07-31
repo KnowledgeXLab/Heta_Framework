@@ -207,6 +207,7 @@ class LeanRAGProcedure:
                         vector_metric=self.vector_metric,
                         batch_size=self.batch_size,
                         graph_store=self.graph_store,
+                        object_store=self.object_store,
                         sql_store=self.sql_store,
                         vector_store=self.vector_store,
                         embedding_model=self.embedding_model,

@@ -9,9 +9,11 @@ from typing import Any, Mapping
 from heta_framework.common.models import EmbeddingRequest
 from heta_framework.common.models.protocols import EmbeddingModelProtocol
 from heta_framework.common.stores.graph import GraphEdge, GraphNode, GraphStoreProtocol
+from heta_framework.common.stores.object import ObjectStoreProtocol
+from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
 from heta_framework.common.stores.sql import SQLStoreProtocol
 from heta_framework.common.stores.vector import VectorCollectionConfig, VectorRecord, VectorStoreProtocol
-from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan
+from heta_framework.kb.cleanup import CleanupTarget, StepCleanupPlan, object_key_targets
 from heta_framework.kb.search import SearchAsset
 from heta_framework.kb.steps.graph_storage import batches, compact_json, validate_identifier
 from heta_framework.kb.steps.leanrag_semantic_aggregation import (
@@ -65,9 +67,14 @@ class BuildLeanRAGGraphConfig:
     all_entities_export_artifact: str = "lean_rag_all_entities_json"
     generated_relations_export_artifact: str = "lean_rag_generate_relations_json"
     communities_export_artifact: str = "lean_rag_community_json"
+    hierarchy_graph_artifact: str = "lean_rag_hierarchy_graph"
+    hierarchy_graph_export_artifact: str = "lean_rag_hierarchy_graph_json"
+    hierarchy_graph_key_artifact: str = "lean_rag_hierarchy_graph_key"
+    hierarchy_graph_prefix: str = "lean_rag/exports"
     vector_metric: str = "cosine"
     batch_size: int = 128
     graph_store: str | None = None
+    object_store: str | None = None
     sql_store: str | None = None
     vector_store: str | None = None
     embedding_model: str | None = None
@@ -77,6 +84,7 @@ class BuildLeanRAGGraphConfig:
             raise ValueError("vector_metric must be one of: cosine, dot, l2")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be greater than zero")
+        validate_object_prefix(self.hierarchy_graph_prefix)
         for name in (
             self.chunks_artifact,
             self.base_relations_artifact,
@@ -85,6 +93,9 @@ class BuildLeanRAGGraphConfig:
             self.communities_artifact,
             self.parent_edges_artifact,
             self.result_artifact,
+            self.hierarchy_graph_artifact,
+            self.hierarchy_graph_export_artifact,
+            self.hierarchy_graph_key_artifact,
         ):
             if name.strip() == "":
                 raise ValueError("artifact names must not be empty")
@@ -116,6 +127,7 @@ class BuildLeanRAGGraph:
             components=frozenset(
                 {
                     store_ref("graph", self.config.graph_store),
+                    store_ref("objects", self.config.object_store),
                     store_ref("sql", self.config.sql_store),
                     store_ref("vector", self.config.vector_store),
                     model_ref("embedding", self.config.embedding_model),
@@ -144,6 +156,9 @@ class BuildLeanRAGGraph:
                     self.config.all_entities_export_artifact,
                     self.config.generated_relations_export_artifact,
                     self.config.communities_export_artifact,
+                    self.config.hierarchy_graph_artifact,
+                    self.config.hierarchy_graph_export_artifact,
+                    self.config.hierarchy_graph_key_artifact,
                 }
             ),
             queries=frozenset({"lean_rag_query"}),
@@ -171,6 +186,7 @@ class BuildLeanRAGGraph:
     def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
         sql_store_ref = store_ref("sql", self.config.sql_store).key
         vector_store_ref = store_ref("vector", self.config.vector_store).key
+        object_store_ref = store_ref("objects", self.config.object_store).key
         return StepCleanupPlan(
             (
                 CleanupTarget("sql_table", self.config.table_names.entities, sql_store_ref),
@@ -179,11 +195,19 @@ class BuildLeanRAGGraph:
                 CleanupTarget("sql_table", self.config.table_names.chunks, sql_store_ref),
                 CleanupTarget("vector_collection", self.config.vector_collections.entities, vector_store_ref),
             )
+            + object_key_targets(
+                artifacts,
+                self.config.hierarchy_graph_key_artifact,
+                component=object_store_ref,
+            )
         )
 
     async def run(self, context: StepContextProtocol) -> None:
         graph_store = _require_graph_store(
             context.get_component(store_ref("graph", self.config.graph_store).key)
+        )
+        object_store = _require_object_store(
+            context.get_component(store_ref("objects", self.config.object_store).key)
         )
         sql_store = _require_sql_store(
             context.get_component(store_ref("sql", self.config.sql_store).key)
@@ -204,6 +228,12 @@ class BuildLeanRAGGraph:
 
         entities = flatten_all_entities_layers(all_entities_layers)
         relations = _dedupe_relations([*_normalize_base_relations(base_relations), *generated_relations])
+        hierarchy_graph = _hierarchy_graph(entities, parent_edges)
+        hierarchy_graph_json = compact_json(hierarchy_graph)
+        hierarchy_graph_key = join_object_key(
+            self.config.hierarchy_graph_prefix,
+            "hierarchy_graph.json",
+        )
         entity_rows = [_entity_row(entity) for entity in entities]
         relation_rows = [_relation_row(relation) for relation in relations]
         community_rows = [_community_row(community) for community in communities]
@@ -234,6 +264,7 @@ class BuildLeanRAGGraph:
             for batch in batches(vectors, self.config.batch_size):
                 await vector_store.upsert(self.config.vector_collections.entities, batch)
 
+        await object_store.put(hierarchy_graph_key, hierarchy_graph_json.encode("utf-8"))
         context.set_artifact(
             self.config.result_artifact,
             BuildLeanRAGGraphResult(
@@ -257,6 +288,12 @@ class BuildLeanRAGGraph:
             self.config.communities_export_artifact,
             export_communities_json_lines(communities),
         )
+        context.set_artifact(self.config.hierarchy_graph_artifact, hierarchy_graph)
+        context.set_artifact(
+            self.config.hierarchy_graph_export_artifact,
+            hierarchy_graph_json,
+        )
+        context.set_artifact(self.config.hierarchy_graph_key_artifact, hierarchy_graph_key)
 
 
 def flatten_all_entities_layers(all_entities_layers: list[Any]) -> list[dict[str, Any]]:
@@ -517,6 +554,11 @@ async def _embed_entities(
                         "level": int(entity.get("level") or 0),
                         "is_aggregate": bool(entity.get("is_aggregate")),
                         "children": _list_value(entity.get("children")),
+                        "documents": _documents(entity),
+                        "document_names": _document_names(entity),
+                        "document_details": _document_details(entity),
+                        "document_tokens": _document_tokens(entity),
+                        "document_token_count": _document_token_count(entity),
                         "embedding_model": result.model_name or embedding_model.model_name,
                     },
                 )
@@ -621,6 +663,51 @@ def _community_row(community: Mapping[str, Any]) -> dict[str, object]:
     }
 
 
+def _hierarchy_graph(
+    entities: list[dict[str, Any]],
+    parent_edges: list[dict[str, Any]],
+) -> dict[str, Any]:
+    nodes = sorted(
+        [_hierarchy_node(entity) for entity in entities],
+        key=lambda node: (-int(node["level"]), str(node["entity_name"])),
+    )
+    edges = sorted(
+        [
+            {
+                "source": str(edge.get("src_tgt") or ""),
+                "target": str(edge.get("tgt_src") or ""),
+                "level": int(edge.get("level") or 0),
+                "type": str(edge.get("relation_type") or "leanrag_parent"),
+            }
+            for edge in parent_edges
+            if edge.get("src_tgt") and edge.get("tgt_src")
+        ],
+        key=lambda edge: (-int(edge["level"]), str(edge["source"]), str(edge["target"])),
+    )
+    document_tokens = _merge_document_tokens(entities)
+    document_names = _merge_document_names(entities)
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "documents": list(document_tokens.keys()),
+        "document_names": document_names,
+        "document_details": _graph_document_details(document_tokens, document_names),
+        "document_tokens": document_tokens,
+        "document_token_count": sum(document_tokens.values()),
+    }
+
+
+def _hierarchy_node(entity: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "entity_name": str(entity.get("entity_name") or ""),
+        "entity_type": str(entity.get("entity_type") or "UNKNOWN"),
+        "description": str(entity.get("description") or entity.get("entity_description") or ""),
+        "level": int(entity.get("level") or 0),
+        "document_details": _document_details(entity),
+        "children": _list_value(entity.get("children")),
+    }
+
+
 def _chunk_row(chunk: Mapping[str, Any]) -> dict[str, object]:
     text = str(chunk.get("text") or chunk.get("content") or "")
     return {
@@ -694,6 +781,93 @@ def _source_ids(record: Mapping[str, Any]) -> list[str]:
     return list(dict.fromkeys(value for value in values if value))
 
 
+def _documents(record: Mapping[str, Any]) -> list[str]:
+    values: list[str] = []
+    documents = record.get("documents", ())
+    if isinstance(documents, str):
+        values.extend(documents.split("|"))
+    elif isinstance(documents, list | tuple):
+        values.extend(str(item) for item in documents)
+    return list(dict.fromkeys(value for value in values if value))
+
+
+def _document_tokens(record: Mapping[str, Any]) -> dict[str, int]:
+    raw = record.get("document_tokens") or {}
+    if not isinstance(raw, Mapping):
+        return {}
+    return {str(document_id): int(count or 0) for document_id, count in raw.items()}
+
+
+def _document_names(record: Mapping[str, Any]) -> dict[str, str]:
+    raw = record.get("document_names") or {}
+    if not isinstance(raw, Mapping):
+        return {}
+    return {str(document_id): str(name) for document_id, name in raw.items()}
+
+
+def _document_details(record: Mapping[str, Any]) -> list[dict[str, Any]]:
+    raw = record.get("document_details") or []
+    if isinstance(raw, list) and raw:
+        return [dict(item) for item in raw if isinstance(item, Mapping)]
+    documents = _documents(record)
+    names = _document_names(record)
+    tokens = _document_tokens(record)
+    return [
+        {
+            "document_id": document_id,
+            "document_name": names.get(document_id, ""),
+            "document_token_count": tokens.get(document_id, 0),
+        }
+        for document_id in documents
+    ]
+
+
+def _document_token_count(record: Mapping[str, Any]) -> int:
+    if "document_token_count" in record:
+        return int(record.get("document_token_count") or 0)
+    return sum(_document_tokens(record).values())
+
+
+def _merge_document_names(records: list[dict[str, Any]]) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for record in records:
+        for document_id, name in _document_names(record).items():
+            if name and document_id not in names:
+                names[document_id] = name
+        for detail in _document_details(record):
+            document_id = str(detail.get("document_id") or "")
+            name = str(detail.get("document_name") or "")
+            if document_id and name and document_id not in names:
+                names[document_id] = name
+        for document_id in _documents(record):
+            names.setdefault(document_id, "")
+    return names
+
+
+def _merge_document_tokens(records: list[dict[str, Any]]) -> dict[str, int]:
+    tokens: dict[str, int] = {}
+    for record in records:
+        for document_id, count in _document_tokens(record).items():
+            tokens[document_id] = max(tokens.get(document_id, 0), count)
+        for document_id in _documents(record):
+            tokens.setdefault(document_id, 0)
+    return tokens
+
+
+def _graph_document_details(
+    document_tokens: Mapping[str, int],
+    document_names: Mapping[str, str],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "document_id": document_id,
+            "document_name": str(document_names.get(document_id, "")),
+            "document_token_count": int(token_count),
+        }
+        for document_id, token_count in document_tokens.items()
+    ]
+
+
 def _list_value(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -709,6 +883,12 @@ def _list_value(value: Any) -> list[Any]:
 def _require_graph_store(component: object) -> GraphStoreProtocol:
     if not isinstance(component, GraphStoreProtocol):
         raise TypeError("stores.graph must satisfy GraphStoreProtocol")
+    return component
+
+
+def _require_object_store(component: object) -> ObjectStoreProtocol:
+    if not isinstance(component, ObjectStoreProtocol):
+        raise TypeError("stores.objects must satisfy ObjectStoreProtocol")
     return component
 
 

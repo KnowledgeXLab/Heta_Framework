@@ -58,6 +58,7 @@ class AdaptUniversalGraphConfig:
     base_entities_artifact: str = "rag_base_entities"
     base_relations_artifact: str = "rag_base_relations"
     extraction_trace_artifact: str = "rag_extraction_trace"
+    document_token_counts_artifact: str = "document_token_counts"
     result_artifact: str = "adapt_universal_graph_result"
     lightrag_extract_keywords: bool = True
     temperature: float = 0.0
@@ -76,6 +77,7 @@ class AdaptUniversalGraphConfig:
             self.graph_node_keys_artifact,
             self.graph_edge_keys_artifact,
             self.result_artifact,
+            self.document_token_counts_artifact,
         ):
             if name.strip() == "":
                 raise ValueError("artifact names must not be empty")
@@ -171,6 +173,13 @@ class AdaptUniversalGraphForHiRAGConfig(_HierarchicalUniversalGraphAdapterConfig
 @dataclass(frozen=True)
 class AdaptUniversalGraphForLeanRAGConfig(_HierarchicalUniversalGraphAdapterConfig):
     """Configuration for adapting universal graph artifacts to LeanRAG."""
+
+    document_token_counts_artifact: str = "document_token_counts"
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.document_token_counts_artifact.strip() == "":
+            raise ValueError("document_token_counts_artifact must not be empty")
 
 
 @dataclass(frozen=True)
@@ -387,14 +396,24 @@ class _BaseHierarchicalUniversalGraphAdapter(_BaseUniversalGraphAdapter):
         self,
         context: StepContextProtocol,
         inputs: _UniversalGraphAdapterInputs,
+        *,
+        document_token_counts: Mapping[str, int] | None = None,
     ) -> None:
+        chunks = [_chunk_record(chunk) for chunk in inputs.chunks]
+        base_entities = self._base_entities(inputs.entities, inputs.relations)
+        if document_token_counts is not None:
+            base_entities = _attach_document_provenance(
+                base_entities,
+                chunks=chunks,
+                document_token_counts=document_token_counts,
+            )
         context.set_artifact(
             self.config.chunks_artifact,
-            [_chunk_record(chunk) for chunk in inputs.chunks],
+            chunks,
         )
         context.set_artifact(
             self.config.base_entities_artifact,
-            self._base_entities(inputs.entities, inputs.relations),
+            base_entities,
         )
         context.set_artifact(
             self.config.base_relations_artifact,
@@ -463,6 +482,14 @@ class AdaptUniversalGraphForLeanRAG(_BaseHierarchicalUniversalGraphAdapter):
     def __init__(self, config: AdaptUniversalGraphForLeanRAGConfig | None = None) -> None:
         self.config = config or AdaptUniversalGraphForLeanRAGConfig()
 
+    @property
+    def requirements(self) -> StepRequirements:
+        base = super().requirements
+        return StepRequirements(
+            components=base.components,
+            artifacts=base.artifacts | frozenset({self.config.document_token_counts_artifact}),
+        )
+
     async def run(self, context: StepContextProtocol) -> None:
         inputs = await self._load_inputs(context)
         await self._persist_graph(
@@ -472,7 +499,10 @@ class AdaptUniversalGraphForLeanRAG(_BaseHierarchicalUniversalGraphAdapter):
             edges=_leanrag_edges(inputs.relations),
             target="leanrag",
         )
-        self._set_base_artifacts(context, inputs)
+        document_token_counts = _document_token_counts(
+            context.get_artifact(self.config.document_token_counts_artifact)
+        )
+        self._set_base_artifacts(context, inputs, document_token_counts=document_token_counts)
 
     def _base_entities(
         self,
@@ -552,6 +582,7 @@ def _adapter_from_legacy_config(
             base_entities_artifact=config.base_entities_artifact,
             base_relations_artifact=config.base_relations_artifact,
             extraction_trace_artifact=config.extraction_trace_artifact,
+            document_token_counts_artifact=config.document_token_counts_artifact,
         )
     )
 
@@ -928,6 +959,93 @@ def _leanrag_base_entities(
 
 def _leanrag_base_relations(relations: list[ExtractedRelation]) -> list[dict[str, Any]]:
     return _base_relations(relations, target="leanrag")
+
+
+def _attach_document_provenance(
+    entities: list[dict[str, Any]],
+    *,
+    chunks: list[Mapping[str, Any]],
+    document_token_counts: Mapping[str, int],
+) -> list[dict[str, Any]]:
+    document_by_source_id: dict[str, str] = {}
+    document_name_by_id: dict[str, str] = {}
+    for chunk in chunks:
+        document_id = str(chunk.get("document_id") or "")
+        if not document_id:
+            continue
+        source_name = str(chunk.get("source_name") or "")
+        if source_name and document_id not in document_name_by_id:
+            document_name_by_id[document_id] = source_name
+        for key_name in ("chunk_id", "hash_code"):
+            source_id = str(chunk.get(key_name) or "")
+            if source_id:
+                document_by_source_id[source_id] = document_id
+
+    records: list[dict[str, Any]] = []
+    for entity in entities:
+        record = dict(entity)
+        documents = _unique(
+            document_by_source_id[source_id]
+            for source_id in _record_source_ids(record)
+            if source_id in document_by_source_id
+        )
+        document_tokens = {
+            document_id: int(document_token_counts.get(document_id, 0))
+            for document_id in documents
+        }
+        document_names = {
+            document_id: document_name_by_id.get(document_id, "")
+            for document_id in documents
+        }
+        document_details = [
+            {
+                "document_id": document_id,
+                "document_name": document_names.get(document_id, ""),
+                "document_token_count": document_tokens.get(document_id, 0),
+            }
+            for document_id in documents
+        ]
+        record.update(
+            {
+                "documents": documents,
+                "document_names": document_names,
+                "document_details": document_details,
+                "document_tokens": document_tokens,
+                "document_token_count": sum(document_tokens.values()),
+            }
+        )
+        properties = dict(record.get("properties") or {})
+        properties.update(
+            {
+                "documents": documents,
+                "document_names": document_names,
+                "document_details": document_details,
+                "document_tokens": document_tokens,
+                "document_token_count": record["document_token_count"],
+            }
+        )
+        record["properties"] = properties
+        records.append(record)
+    return records
+
+
+def _record_source_ids(record: Mapping[str, Any]) -> list[str]:
+    values: list[str] = []
+    source_ids = record.get("source_ids", ())
+    if isinstance(source_ids, str):
+        values.extend(source_ids.split("|"))
+    elif isinstance(source_ids, list | tuple | set):
+        values.extend(str(item) for item in source_ids)
+    source_id = str(record.get("source_id") or "")
+    if source_id:
+        values.extend(source_id.split("|"))
+    return _unique(value.strip() for value in values)
+
+
+def _document_token_counts(value: object) -> dict[str, int]:
+    if not isinstance(value, Mapping):
+        raise TypeError("document_token_counts must be a mapping")
+    return {str(key): int(count) for key, count in value.items()}
 
 
 def _chunk_record(chunk: ParsedChunk) -> dict[str, Any]:
