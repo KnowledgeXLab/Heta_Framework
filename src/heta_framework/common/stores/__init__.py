@@ -10,6 +10,8 @@ from heta_framework.common.stores.object import (
     S3ObjectStoreConfig,
 )
 from heta_framework.common.stores.graph import (
+    ClusterableGraphStoreProtocol,
+    ClusterableInMemoryGraphStore,
     GraphEdge,
     GraphNode,
     GraphStoreProtocol,
@@ -52,6 +54,8 @@ __all__ = [
     "DistanceMetric",
     "ElasticsearchTextIndexStore",
     "ElasticsearchTextIndexStoreConfig",
+    "ClusterableGraphStoreProtocol",
+    "ClusterableInMemoryGraphStore",
     "GraphEdge",
     "GraphNode",
     "GraphStoreProtocol",

@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import Any, Mapping
 
 from heta_framework.common.stores.object import ObjectStoreProtocol
 from heta_framework.common.stores.object.types import join_object_key, validate_object_prefix
 from heta_framework.kb.cleanup import StepCleanupPlan, object_key_targets
-from heta_framework.kb.parsing import DocumentParserRegistry, make_document_id, make_parsed_source
+from heta_framework.kb.parsing import (
+    DocumentParserRegistry,
+    ParsedDocument,
+    make_document_id,
+    make_parsed_source,
+)
 from heta_framework.kb.steps.protocols import StepContextProtocol
 from heta_framework.kb.steps.types import StepCapabilities, StepRequirements, parser_ref, store_ref
 
@@ -23,10 +28,13 @@ class ParseDocumentsConfig:
     skip_unsupported: bool = True
     object_store: str | None = None
     parser_registry: str | None = None
+    document_token_counts_artifact: str = "document_token_counts"
 
     def __post_init__(self) -> None:
         validate_object_prefix(self.raw_prefix)
         validate_object_prefix(self.parsed_prefix)
+        if self.document_token_counts_artifact.strip() == "":
+            raise ValueError("document_token_counts_artifact must not be empty")
 
 
 @dataclass(frozen=True)
@@ -35,6 +43,7 @@ class ParseDocumentsResult:
 
     document_keys: tuple[str, ...]
     skipped_keys: tuple[str, ...] = ()
+    document_token_counts: Mapping[str, int] = field(default_factory=dict)
 
 
 class ParseDocuments:
@@ -61,7 +70,13 @@ class ParseDocuments:
     def capabilities(self) -> StepCapabilities:
         """Return artifacts produced by this step."""
         return StepCapabilities(
-            artifacts=frozenset({"parse_documents_result", "parsed_document_keys"})
+            artifacts=frozenset(
+                {
+                    "parse_documents_result",
+                    "parsed_document_keys",
+                    self.config.document_token_counts_artifact,
+                }
+            )
         )
 
     def cleanup_plan(self, artifacts: Mapping[str, Any]) -> StepCleanupPlan:
@@ -85,6 +100,7 @@ class ParseDocuments:
 
         document_keys: list[str] = []
         skipped_keys: list[str] = []
+        document_token_counts: dict[str, int] = {}
         for item in await object_store.list(self.config.raw_prefix):
             file_type = _file_type_from_key(item.key)
             if file_type is None or parser_registry.find_parser(file_type) is None:
@@ -105,19 +121,24 @@ class ParseDocuments:
                 f"{make_document_id(source.content_sha256)}.json",
             )
             if await object_store.exists(document_key):
+                document = ParsedDocument.from_json(await object_store.get(document_key))
+                document_token_counts[document.document_id] = _document_token_count(document)
                 document_keys.append(document_key)
                 continue
 
             document = await parser_registry.parse(source, data)
             await object_store.put(document_key, document.to_json_bytes())
+            document_token_counts[document.document_id] = _document_token_count(document)
             document_keys.append(document_key)
 
         result = ParseDocumentsResult(
             document_keys=tuple(document_keys),
             skipped_keys=tuple(skipped_keys),
+            document_token_counts=document_token_counts,
         )
         context.set_artifact("parse_documents_result", result)
         context.set_artifact("parsed_document_keys", result.document_keys)
+        context.set_artifact(self.config.document_token_counts_artifact, document_token_counts)
 
 
 def _file_type_from_key(key: str) -> str | None:
@@ -135,3 +156,16 @@ def _require_parser_registry(component: object) -> DocumentParserRegistry:
     if not isinstance(component, DocumentParserRegistry):
         raise TypeError("parsers.documents must be a DocumentParserRegistry")
     return component
+
+
+def _document_token_count(document: ParsedDocument) -> int:
+    return _token_count_for_text("\n".join(page.text for page in document.pages))
+
+
+def _token_count_for_text(text: str) -> int:
+    try:
+        import tiktoken
+
+        return len(tiktoken.get_encoding("cl100k_base").encode(text))
+    except Exception:
+        return len(text.split())

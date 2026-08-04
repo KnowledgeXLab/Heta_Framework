@@ -38,7 +38,8 @@ class QuickStartLanguageModel:
 
     async def invoke(self, request: ModelRequest) -> ModelResult:
         step = (request.trace_context or {}).get("step")
-        if step == "extract_entities":
+        stage = (request.trace_context or {}).get("stage")
+        if step == "extract_universal_graph" and stage == "entity_extraction":
             return ModelResult(
                 text="",
                 parsed={
@@ -61,7 +62,7 @@ class QuickStartLanguageModel:
                 },
                 model_name=self.model_name,
             )
-        if step == "extract_relations":
+        if step == "extract_universal_graph" and stage == "relation_extraction":
             return ModelResult(
                 text="",
                 parsed={

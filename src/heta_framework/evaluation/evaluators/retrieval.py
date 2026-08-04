@@ -144,17 +144,12 @@ def _matches_evidence(evidence: BenchmarkEvidence, result: QueryResult) -> bool:
 
 def _locator_matches(locator: Mapping[str, Any], result: QueryResult) -> bool:
     source = dict(result.source)
-    source_candidates = _source_candidates(result)
     for key, expected in locator.items():
         if key == "source_key":
-            if any(_source_key(candidate) == expected for candidate in source_candidates):
-                continue
-            return False
+            actual = source.get("source_key", source.get("object_key"))
         elif key == "source_key_prefix":
-            if any(
-                str(_source_key(candidate) or "").startswith(str(expected))
-                for candidate in source_candidates
-            ):
+            actual = str(source.get("source_key", source.get("object_key", "")))
+            if actual.startswith(str(expected)):
                 continue
             return False
         elif key == "chunk_id":
@@ -172,15 +167,12 @@ def _locator_matches(locator: Mapping[str, Any], result: QueryResult) -> bool:
 def _reference_matches(reference_id: str, result: QueryResult) -> bool:
     if reference_id == result.id:
         return True
-    return any(
-        reference_id
-        in {
-            str(source.get("document_id", "")),
-            str(source.get("source_key", "")),
-            str(source.get("object_key", "")),
-        }
-        for source in _source_candidates(result)
-    )
+    source = dict(result.source)
+    return reference_id in {
+        str(source.get("document_id", "")),
+        str(source.get("source_key", "")),
+        str(source.get("object_key", "")),
+    }
 
 
 def _text_matches(expected_text: str, result_text: str) -> bool:
@@ -215,36 +207,50 @@ def _ranked_document_ids(results: tuple[QueryResult, ...], *, k: int) -> tuple[s
     document_ids: list[str] = []
     seen: set[str] = set()
     for result in results:
-        document_id = _beir_document_id(result)
-        if document_id is None or document_id in seen:
-            continue
-        seen.add(document_id)
-        document_ids.append(document_id)
-        if len(document_ids) >= k:
-            break
+        for document_id in _beir_document_ids(result):
+            if document_id in seen:
+                continue
+            seen.add(document_id)
+            document_ids.append(document_id)
+            if len(document_ids) >= k:
+                return tuple(document_ids)
     return tuple(document_ids)
 
 
 def _beir_document_id(result: QueryResult) -> str | None:
-    source = dict(result.source)
-    for key in ("beir_document_id", "benchmark_document_id"):
-        value = source.get(key) or result.metadata.get(key)
-        if value is not None and str(value).strip():
-            return str(value).strip()
-    for candidate in _source_candidates(result):
-        source_key = _source_key(candidate)
-        if source_key is None:
-            continue
-        parts = [part for part in str(source_key).split("/") if part]
-        try:
-            index = parts.index("beir")
-        except ValueError:
-            index = -1
-        if index >= 0 and len(parts) > index + 2:
-            return parts[index + 2]
-        if len(parts) >= 5 and parts[0] == "raw" and parts[1] == "benchmarks":
-            return parts[4]
-    return None
+    document_ids = _beir_document_ids(result)
+    return document_ids[0] if document_ids else None
+
+
+def _beir_document_ids(result: QueryResult) -> tuple[str, ...]:
+    document_ids: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: object | None) -> None:
+        if value is None:
+            return
+        text = str(value).strip()
+        if text and text not in seen:
+            document_ids.append(text)
+            seen.add(text)
+
+    candidates = (*_source_candidates(result), result.metadata)
+    for candidate in candidates:
+        for key in ("beir_document_id", "benchmark_document_id"):
+            add(candidate.get(key))
+        for key in ("beir_document_ids", "benchmark_document_ids"):
+            for value in _as_sequence(candidate.get(key)):
+                add(value)
+        for key in ("source_key", "object_key"):
+            parsed = _beir_document_id_from_source_key(candidate.get(key))
+            if parsed is not None:
+                add(parsed)
+        for key in ("source_keys", "object_keys"):
+            for value in _as_sequence(candidate.get(key)):
+                parsed = _beir_document_id_from_source_key(value)
+                if parsed is not None:
+                    add(parsed)
+    return tuple(document_ids)
 
 
 def _source_candidates(result: QueryResult) -> tuple[Mapping[str, Any], ...]:
@@ -259,8 +265,27 @@ def _source_candidates(result: QueryResult) -> tuple[Mapping[str, Any], ...]:
     return tuple(candidates)
 
 
-def _source_key(source: Mapping[str, Any]) -> object | None:
-    return source.get("source_key") or source.get("object_key")
+def _beir_document_id_from_source_key(source_key: object | None) -> str | None:
+    if source_key is None:
+        return None
+    parts = [part for part in str(source_key).split("/") if part]
+    try:
+        index = parts.index("beir")
+    except ValueError:
+        index = -1
+    if index >= 0 and len(parts) > index + 2:
+        return parts[index + 2]
+    if len(parts) >= 5 and parts[0] == "raw" and parts[1] == "benchmarks":
+        return parts[4]
+    return None
+
+
+def _as_sequence(value: object | None) -> tuple[object, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return tuple(value)
+    return (value,)
 
 
 def _score_beir_metric(

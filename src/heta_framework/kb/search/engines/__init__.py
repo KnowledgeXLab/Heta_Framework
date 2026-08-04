@@ -3,8 +3,27 @@
 from heta_framework.kb.search.engines.agentic import AgenticQueryEngine
 from heta_framework.kb.search.engines.full_text import FullTextSearchEngine
 from heta_framework.kb.search.engines.graph import HetaGraphSearchEngine
+from heta_framework.kb.search.engines.graph_rag import (
+    GraphRAGGlobalQueryEngine,
+    GraphRAGLocalQueryEngine,
+)
+from heta_framework.kb.search.engines.hi_rag import (
+    HiRAGBridgeQueryEngine,
+    HiRAGFullQueryEngine,
+    HiRAGGlobalQueryEngine,
+    HiRAGLocalQueryEngine,
+    HiRAGNobridgeQueryEngine,
+    HiRAGQueryEngine,
+)
 from heta_framework.kb.search.engines.hybrid import HybridSearchEngine
 from heta_framework.kb.search.engines.keyword import SqlTextSearchEngine
+from heta_framework.kb.search.engines.lean_rag import LeanRAGQueryEngine
+from heta_framework.kb.search.engines.light_rag import (
+    LightRAGGlobalQueryEngine,
+    LightRAGHybridQueryEngine,
+    LightRAGLocalQueryEngine,
+    LightRAGMixQueryEngine,
+)
 from heta_framework.kb.search.engines.multi_hop import MultiHopSearchEngine
 from heta_framework.kb.search.engines.rerank import RerankSearchEngine
 from heta_framework.kb.search.engines.rewrite import RewriteSearchEngine
@@ -14,8 +33,21 @@ from heta_framework.kb.search.engines.wiki_hybrid import WikiHybridSearchEngine
 __all__ = [
     "AgenticQueryEngine",
     "FullTextSearchEngine",
+    "GraphRAGGlobalQueryEngine",
+    "GraphRAGLocalQueryEngine",
     "HetaGraphSearchEngine",
     "HybridSearchEngine",
+    "LightRAGGlobalQueryEngine",
+    "LightRAGHybridQueryEngine",
+    "LightRAGLocalQueryEngine",
+    "LightRAGMixQueryEngine",
+    "HiRAGBridgeQueryEngine",
+    "HiRAGFullQueryEngine",
+    "HiRAGGlobalQueryEngine",
+    "HiRAGLocalQueryEngine",
+    "HiRAGNobridgeQueryEngine",
+    "HiRAGQueryEngine",
+    "LeanRAGQueryEngine",
     "MultiHopSearchEngine",
     "RerankSearchEngine",
     "RewriteSearchEngine",

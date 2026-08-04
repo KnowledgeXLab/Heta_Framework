@@ -16,8 +16,8 @@ steps = [
     SplitDocuments(),
     EmbedChunks(),
     IndexVectors(),
-    ExtractEntities(),
-    ExtractRelations(),
+    ExtractUniversalGraph(),
+    ExtractUniversalGraph(),
     BuildGraph(),
 ]
 ```
@@ -33,8 +33,8 @@ Step 是原子执行单元，但文档中可以按常见构建目标分组理解
 | 基础文档索引 | `ParseDocuments`、`SplitDocuments`、`EmbedChunks`、`IndexVectors` | 从原始文件到 chunk 向量索引，完成后提供 `vector_search`。 |
 | 全文索引 | `ParseDocuments`、`SplitDocuments`、`IndexFullText` | 将 chunk text 写入 TextIndexStore，完成后提供 `full_text_search`。 |
 | SQL 文本索引 | `ParseDocuments`、`SplitDocuments`、`PersistChunks` | 将 chunk text 写入 SQLStore，完成后提供 `sql_text_search`。 |
-| Heta graph build | `MergeChunks`、`RechunkDocuments`、`PersistChunks`、`ExtractEntities`、`ExtractRelations`、`DeduplicateEntities`、`DeduplicateRelations`、`BuildGraph` | `IndexVectors` 之后的 HetaDB-style 建图链路。`MergeChunks`、`RechunkDocuments`、`PersistChunks` 是可选准备步骤，服务于后续图谱抽取和溯源，不提供新的 Milvus 检索库。 |
-| Heta graph merge | `MergeChunks`、`RechunkDocuments`、`PersistChunks`、`ExtractEntities`、`ExtractRelations`、`DeduplicateEntities`、`DeduplicateRelations`、`MergeGraphIntoStore` | 动态增量图谱链路，最终合并进已有 SQL/vector graph store。 |
+| Heta graph build | `MergeChunks`、`RechunkDocuments`、`PersistChunks`、`ExtractUniversalGraph`、`DeduplicateEntities`、`DeduplicateRelations`、`BuildGraph` | `IndexVectors` 之后的 HetaDB-style 建图链路。`MergeChunks`、`RechunkDocuments`、`PersistChunks` 是可选准备步骤，服务于后续图谱抽取和溯源，不提供新的 Milvus 检索库。 |
+| Heta graph merge | `MergeChunks`、`RechunkDocuments`、`PersistChunks`、`ExtractUniversalGraph`、`DeduplicateEntities`、`DeduplicateRelations`、`MergeGraphIntoStore` | 动态增量图谱链路，最终合并进已有 SQL/vector graph store。 |
 
 `HetaGraphProcedure` 只做静态接线和 step 展开，不读取 context、不访问 store、不执行任务。
 Recipe runner 仍然基于展开后的 steps 做依赖校验和调度。
@@ -46,7 +46,7 @@ Step 是构建动作，不是组件容器。
 模型、存储和 parser 应放在 recipe 顶层，由 step 通过组件引用获取。这样 recipe 可以清楚展示使用了哪些基础组件，step 也不会持有隐式资源。
 
 ```python
-ExtractRelations(model="strong")
+ExtractUniversalGraph(model="strong")
 ```
 
 这个写法表示“使用 recipe 中名为 `strong` 的 language model”，而不是把模型实例直接塞进 step。默认不写名称时，step 使用对应类型的默认组件。

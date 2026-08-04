@@ -331,10 +331,10 @@ ParseDocuments
 EmbedChunks
     reuse embeddings/{chunk_id}.json if it exists.
 
-ExtractEntities
+ExtractUniversalGraph
     reuse entities/{chunk_id}/*.json if they exist.
 
-ExtractRelations
+ExtractUniversalGraph
     reuse relations/{chunk_id}/*.json if they exist.
 ```
 

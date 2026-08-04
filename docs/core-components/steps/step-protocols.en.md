@@ -16,8 +16,8 @@ steps = [
     SplitDocuments(),
     EmbedChunks(),
     IndexVectors(),
-    ExtractEntities(),
-    ExtractRelations(),
+    ExtractUniversalGraph(),
+    ExtractUniversalGraph(),
     BuildGraph(),
 ]
 ```
@@ -31,8 +31,8 @@ Steps are atomic at runtime. Documentation groups them by common build goals, bu
 | Document indexing | `ParseDocuments`, `SplitDocuments`, `EmbedChunks`, `IndexVectors` | Builds chunk vectors and enables `vector_search`. |
 | Full-text indexing | `ParseDocuments`, `SplitDocuments`, `IndexFullText` | Writes chunks into `TextIndexStore` and enables `full_text_search`. |
 | SQL text indexing | `ParseDocuments`, `SplitDocuments`, `PersistChunks` | Writes chunks into `SQLStore` and enables `sql_text_search`. |
-| Heta graph build | `MergeChunks`, `RechunkDocuments`, `PersistChunks`, `ExtractEntities`, `ExtractRelations`, `DeduplicateEntities`, `DeduplicateRelations`, `BuildGraph` | Builds a Heta-style SQL/vector graph and enables `heta_graph_search`. |
-| Heta graph merge | `MergeChunks`, `RechunkDocuments`, `PersistChunks`, `ExtractEntities`, `ExtractRelations`, `DeduplicateEntities`, `DeduplicateRelations`, `MergeGraphIntoStore` | Merges a new batch into an existing graph store. |
+| Heta graph build | `MergeChunks`, `RechunkDocuments`, `PersistChunks`, `ExtractUniversalGraph`, `DeduplicateEntities`, `DeduplicateRelations`, `BuildGraph` | Builds a Heta-style SQL/vector graph and enables `heta_graph_search`. |
+| Heta graph merge | `MergeChunks`, `RechunkDocuments`, `PersistChunks`, `ExtractUniversalGraph`, `DeduplicateEntities`, `DeduplicateRelations`, `MergeGraphIntoStore` | Merges a new batch into an existing graph store. |
 
 `HetaGraphProcedure` only expands a common graph build path into steps. The builder still validates and runs the expanded steps one by one.
 
@@ -43,7 +43,7 @@ A step is a build action, not a component container.
 Models, stores, and parser registries live at the top level of `KnowledgeRecipe`. A step references them by name:
 
 ```python
-ExtractRelations(model="strong")
+ExtractUniversalGraph(model="strong")
 ```
 
 This means "use the language model named `strong` from the recipe." It does not embed a model instance inside the step.

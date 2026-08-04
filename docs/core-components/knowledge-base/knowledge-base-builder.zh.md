@@ -128,7 +128,7 @@ result = await builder.build(
 5. 从第一个未成功 step 继续执行。
 ```
 
-Step 是否能避免重复外部调用，还取决于 step 自身的 artifact 幂等设计。例如 `EmbedChunks` 会复用已存在的 embedding artifact，`ExtractEntities` 和 `ExtractRelations` 会复用已存在的 chunk 级抽取结果。
+Step 是否能避免重复外部调用，还取决于 step 自身的 artifact 幂等设计。例如 `EmbedChunks` 会复用已存在的 embedding artifact，`ExtractUniversalGraph` 会复用已存在的 chunk 级抽取结果。
 
 ## Failure Behavior
 

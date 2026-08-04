@@ -56,8 +56,8 @@ rechunked_chunk_keys
 
 ```text
 PersistChunks
-ExtractEntities
-ExtractRelations
+ExtractUniversalGraph
+ExtractUniversalGraph
 ```
 
 ## Output
