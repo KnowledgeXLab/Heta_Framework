@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import types
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Mapping
 
 from heta_framework.common.models import EmbeddingRequest, ModelOptions, ModelRequest
@@ -21,6 +17,7 @@ from heta_framework.kb.search.engines._language import (
     should_generate_answer,
 )
 from heta_framework.kb.search.engines._provenance import citations_from_results, chunk_source
+from heta_framework.kb.graphing.prompts import LIGHTRAG_PROMPTS
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 from heta_framework.kb.steps.graph_storage import validate_identifier
@@ -773,31 +770,4 @@ def _require_embedding_model(component: object) -> EmbeddingModelProtocol:
 
 
 def _lightrag_prompts() -> Mapping[str, Any]:
-    if not hasattr(_lightrag_prompts, "_cache"):
-        setattr(_lightrag_prompts, "_cache", _load_lightrag_prompts())
-    return getattr(_lightrag_prompts, "_cache")
-
-
-def _load_lightrag_prompts() -> Mapping[str, Any]:
-    try:
-        from lightrag.prompt import PROMPTS  # type: ignore
-
-        return PROMPTS
-    except Exception:
-        pass
-    repo_root = Path(__file__).resolve().parents[6]
-    prompt_path = repo_root / "LightRAG" / "lightrag" / "prompt.py"
-    spec = importlib.util.spec_from_file_location("_heta_lightrag_prompt_query", prompt_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"could not load LightRAG prompt module from {prompt_path}")
-    module = importlib.util.module_from_spec(spec)
-    if "yaml" not in sys.modules:
-        yaml_stub = types.ModuleType("yaml")
-        yaml_stub.YAMLError = ValueError
-        yaml_stub.safe_load = lambda content: None
-        sys.modules["yaml"] = yaml_stub
-    spec.loader.exec_module(module)
-    prompts = getattr(module, "PROMPTS", None)
-    if not isinstance(prompts, dict):
-        raise RuntimeError("LightRAG prompt module does not expose PROMPTS")
-    return prompts
+    return LIGHTRAG_PROMPTS

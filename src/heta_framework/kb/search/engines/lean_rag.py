@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 from collections import Counter
 from dataclasses import dataclass
 from itertools import combinations
-from pathlib import Path
 from typing import Any
 
 from heta_framework.common.models import EmbeddingRequest, ModelOptions, ModelRequest
@@ -17,24 +15,10 @@ from heta_framework.common.stores.vector import VectorQuery, VectorSearchResult,
 from heta_framework.kb.search.assets import SearchAsset, SearchAssetRef
 from heta_framework.kb.search.engines._language import optional_language_model_from_context
 from heta_framework.kb.search.engines._provenance import citations_from_results
+from heta_framework.kb.graphing.prompts import LEANRAG_PROMPTS
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 from heta_framework.kb.steps.types import ComponentRef, model_ref, store_ref
-
-
-def _load_original_leanrag_prompts() -> dict[str, Any]:
-    repo_root = Path(__file__).resolve().parents[6]
-    prompt_path = repo_root / "LeanRAG" / "prompt.py"
-    if prompt_path.exists():
-        spec = importlib.util.spec_from_file_location("_heta_query_leanrag_prompt", prompt_path)
-        if spec is not None and spec.loader is not None:
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            return dict(module.PROMPTS)
-    return {"rag_response": "{context_data}"}
-
-
-LEANRAG_PROMPTS = _load_original_leanrag_prompts()
 
 
 @dataclass(frozen=True)
