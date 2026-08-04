@@ -276,7 +276,7 @@ Output:
 """
 
 
-GRAPH_RAG_ENTITY_EXTRACTION_PROMPT = """-Goal-
+GRAPH_RAG_ENTITY_EXTRACTION_PROMPT="""-Goal-
 Given a text document that is potentially relevant to this activity and a list of entity types, identify all entities of those types from the text and all relationships among the identified entities.
 
 -Steps-
@@ -375,9 +375,9 @@ Text: {input_text}
 ######################
 Output:
 """
-GRAPH_RAG_ENTITY_CONTINUE_EXTRACTION_PROMPT = """MANY entities were missed in the last extraction.  Add them below using the same format:
+GRAPH_RAG_ENTITY_CONTINUE_EXTRACTION_PROMPT="""MANY entities were missed in the last extraction.  Add them below using the same format:
 """
-GRAPH_RAG_ENTITY_IF_LOOP_EXTRACTION_PROMPT = """It appears some entities may have still been missed.  Answer YES | NO if there are still entities that need to be added.
+GRAPH_RAG_ENTITY_IF_LOOP_EXTRACTION_PROMPT= """It appears some entities may have still been missed.  Answer YES | NO if there are still entities that need to be added.
 """
 GRAPH_RAG_COMMUNITY_REPORT_PROMPT = """You are an AI assistant that helps a human analyst to perform general information discovery.
 Information discovery is the process of identifying and assessing relevant information associated with certain entities (e.g., organizations and individuals) within a network.
@@ -509,23 +509,6 @@ Output:
 """
 
 LIGHTRAG_PROMPTS = {
-    "keywords_extraction_examples": [],
-    "keywords_extraction": (
-        "Extract high-level and low-level keywords from the query. Return only JSON "
-        "with string-array fields high_level_keywords and low_level_keywords.\n\n"
-        "Language: {language}\nExamples:\n{examples}\nQuery:\n{query}"
-    ),
-    "kg_query_context": (
-        "Knowledge Graph Data (Entity):\n{entities_str}\n\n"
-        "Knowledge Graph Data (Relationship):\n{relations_str}\n\n"
-        "Document Chunks:\n{text_chunks_str}\n\n"
-        "Reference Document List:\n{reference_list_str}"
-    ),
-    "rag_response": (
-        "Answer using only the supplied context. If the context is insufficient, say so.\n\n"
-        "Response type: {response_type}\nUser instructions: {user_prompt}\n\n"
-        "Context:\n{context_data}"
-    ),
     "default_entity_types_guidance": (
         "Extract named entities relevant to the text. Use concise, domain-specific types."
     ),
@@ -555,6 +538,119 @@ LIGHTRAG_PROMPTS = {
     ),
     "entity_extraction_user_prompt": GRAPH_RAG_ENTITY_EXTRACTION_PROMPT,
     "entity_continue_extraction_user_prompt": GRAPH_RAG_ENTITY_CONTINUE_EXTRACTION_PROMPT,
+    "keywords_extraction": """---Role---
+You are an expert keyword extractor, specializing in analyzing user queries for a Retrieval-Augmented Generation (RAG) system. Your purpose is to identify both high-level and low-level keywords in the user's query that will be used for effective document retrieval.
+
+---Goal---
+Given a user query, your task is to extract two distinct types of keywords:
+1. **high_level_keywords**: for overarching concepts or themes, capturing user's core intent, the subject area, or the type of question being asked.
+2. **low_level_keywords**: for specific entities or details, identifying the specific entities, proper nouns, technical jargon, product names, or concrete items.
+
+---Instructions & Constraints---
+1. **Output Format**: Your output MUST be a valid JSON object and nothing else. Do not include any explanatory text, markdown code fences (like ```json), comments, or any other text before or after the JSON.
+2. **Exact JSON Shape**: The JSON object must contain exactly these two keys:
+   - `"high_level_keywords"`: an array of strings
+   - `"low_level_keywords"`: an array of strings
+3. **JSON Boundary**: The first character of your response must be `{{` and the last character must be `}}`.
+4. **Source of Truth**: All keywords must be explicitly derived only from the `User Query` in the `---Real Data---` section. Do not infer unsupported facts. Do not invent entities, products, organizations, dates, or technical terms that are not grounded in the query.
+5. **Concise & Meaningful**: Keywords should be concise words or meaningful phrases. Prioritize multi-word phrases when they represent a single concept instead of splitting meaningful phrases into isolated words.
+6. **Handle Edge Cases**: For queries that are too simple, vague, or nonsensical (e.g., "hello", "ok", "asdfghjkl"), return:
+   `{{"high_level_keywords": [], "low_level_keywords": []}}`
+7. **No Duplicates**: Do not repeat the same keyword within a list. Keep the lists short and high-signal.
+8. **Language**: All extracted keywords MUST be in {language}. Proper nouns (e.g., personal names, place names, organization names) should be kept in their original language.
+9. **Output Format Template Safety**: The `---Output Format Template---` section contains an output JSON template only. It is never source text. Do not extract, infer, or copy keywords from the template. Angle-bracket tokens such as `<high_level_keyword>` are placeholders; replace them only with keywords derived from the current `User Query` and never output the placeholders literally.
+
+---Output Format Template---
+The following content is an output JSON format template only. It is not source text and must never be used as keyword extraction content.
+
+{examples}
+
+---Real Data---
+User Query: {query}
+
+---Output---
+Output:""",
+    "keywords_extraction_examples": [
+        """{
+  "high_level_keywords": ["<high_level_keyword>"],
+  "low_level_keywords": ["<low_level_keyword>"]
+}
+"""
+    ],
+    "kg_query_context": """
+Knowledge Graph Data (Entity):
+```json
+{entities_str}
+```
+
+Knowledge Graph Data (Relationship):
+```json
+{relations_str}
+```
+
+Document Chunks (Each entry has a reference_id refer to the `Reference Document List`; the optional `content_headings` field gives the chunk's heading path within its source document, e.g. `Section 1 → Subsection 1.2`):
+```json
+{text_chunks_str}
+```
+
+Reference Document List (Each entry starts with a [reference_id] that corresponds to entries in the Document Chunks):
+
+```
+{reference_list_str}
+```
+""",
+    "rag_response": """---Role---
+
+You are an expert AI assistant specializing in synthesizing information from a provided knowledge base. Your primary function is to answer user queries accurately by ONLY using the information within the provided **Context**.
+
+---Goal---
+
+Generate a comprehensive, well-structured answer to the user query.
+The answer must integrate relevant facts from the Knowledge Graph and Document Chunks found in the **Context**.
+Consider the conversation history if provided to maintain conversational flow and avoid repeating information.
+
+---Instructions---
+
+1. Step-by-Step Instruction:
+  - Carefully determine the user's query intent in the context of the conversation history to fully understand the user's information need.
+  - Scrutinize both `Knowledge Graph Data` and `Document Chunks` in the **Context**. Identify and extract all pieces of information that are directly relevant to answering the user query.
+  - Weave the extracted facts into a coherent and logical response. Your own knowledge must ONLY be used to formulate fluent sentences and connect ideas, NOT to introduce any external information.
+  - Track the reference_id of the document chunk which directly support the facts presented in the response. Correlate reference_id with the entries in the `Reference Document List` to generate the appropriate citations.
+  - Generate a references section at the end of the response. Each reference document must directly support the facts presented in the response.
+  - Do not generate anything after the reference section.
+
+2. Content & Grounding:
+  - Strictly adhere to the provided context from the **Context**; DO NOT invent, assume, or infer any information not explicitly stated.
+  - If the answer cannot be found in the **Context**, state that you do not have enough information to answer. Do not attempt to guess.
+
+3. Formatting & Language:
+  - The response MUST be in the same language as the user query.
+  - The response MUST utilize Markdown formatting for enhanced clarity and structure (e.g., headings, bold text, bullet points).
+  - The response should be presented in {response_type}.
+
+4. References Section Format:
+  - The References section should be under heading: `### References`
+  - Reference list entries should adhere to the format: `* [n] Document Title`. Do not include a caret (`^`) after opening square bracket (`[`).
+  - The Document Title in the citation must retain its original language.
+  - Output each citation on an individual line
+  - Provide maximum of 5 most relevant citations.
+  - Do not generate footnotes section or any comment, summary, or explanation after the references.
+
+5. Reference Section Example:
+```
+### References
+
+- [1] Document Title One
+- [2] Document Title Two
+- [3] Document Title Three
+```
+
+6. Additional Instructions: {user_prompt}
+
+---Context---
+
+{context_data}
+""",
 }
 
 HIRAG_GRAPH_FIELD_SEP = "<SEP>"
@@ -591,39 +687,163 @@ HIRAG_PROMPTS = {
 HIRAG_COMMUNITY_SUMMARY_PROMPT = GRAPH_RAG_COMMUNITY_REPORT_PROMPT
 HIRAG_ENTITY_SUMMARY_PROMPT = GRAPH_SUMMARY_PROMPT
 
-LEANRAG_AGGREGATE_ENTITY_PROMPT = """You are an expert in concept synthesis.
-Identify one meaningful aggregate entity from the provided related entities and evidence.
+LEANRAG_AGGREGATE_ENTITY_PROMPT = """
+# Role: Entity Aggregation Analyst
 
-Rules:
-- Return only valid JSON.
-- Include "entity_name", "entity_description", and "findings".
-- The aggregate entity must be grounded in the provided evidence.
-- Do not invent facts.
+## Profile
+- author: LangGPT
+- version: 1.0
+- language: English
+- description: You are an expert in concept synthesis. Your task is to identify a meaningful aggregate entity from a set of related entities and extract structured insights based solely on provided evidence.
 
+## Skills
+- Abstraction and naming of collective concepts based on entity types
+- Structured summarization and typology recognition
+- Comparative analysis across multiple entities
+- Strict grounding to provided data (no hallucinated content)
+
+## Goals
+- Derive a meaningful aggregate entity that broadly represents the given entity set
+- The aggregate entity name must not match any single entity in the set
+- Provide an accurate and concise description of the aggregate entity reflecting shared characteristics
+- Extract 5–10 structured findings about the entity set based on grounded evidence
+
+## OutputFormat
+Format:
 Input:
 {input_text}
+
+Output:
+{{
+      "entity_name": "<name>",
+      "entity_description": "<brief description summarizing the shared traits and structure>",
+      "findings": [
+        {{
+          "summary": "<summary_1>",
+          "explanation": "<explanation_1>"
+        }},
+        {{
+          "summary": "<summary_2>",
+          "explanation": "<explanation_2>"
+        }}
+        // ...
+      ]
+    }}
+
+## Rules
+- Grounding Rule: All content must be based solely on the provided entity set — no external assumptions
+- Naming Rule: The aggregate entity name must not be identical to any single entity; it should reflect a composite structure, function, or theme
+- Each finding must include a concise summary and a detailed explanation
+- Avoid adding speculative or unsupported interpretations
+
+## Workflows
+1. Review the list of entities, focusing on types, descriptions, and relational structure
+2. Synthesize a generalized name that best represents the full entity set
+3. Write a clear, evidence-based description of the aggregate entity
+4. Extract and elaborate on key findings, emphasizing structure, purpose, and interconnections
 """
 
-LEANRAG_AGGREGATE_RELATION_PROMPT = """Summarize the high-level relationship between two aggregate entities.
+LEANRAG_AGGREGATE_RELATION_PROMPT = """
+# Role: Inter-Aggregation Relationship Analyst
 
-Rules:
-- Return one concise relationship description.
-- Base the description only on the two aggregate descriptions and evidence relations.
-- Do not output tuple records.
-- Stay within {tokens} tokens.
+## Profile
+- author: LangGPT
+- version: 1.1
+- language: English
+- description: You specialize in analyzing relationships between two aggregation entities. Your goal is to synthesize one high-level, abstract summary sentence describing how two named aggregations are connected, based solely on their descriptions and sub-entity relationships.
 
-Aggregation A: {entity_a}
+## Skills
+- Aggregated reasoning across entity groups
+- Abstraction of cross-entity relationships
+- Formal summarization under strict constraints
+- Strong grounding without repetition or speculation
+
+## Goals
+- Produce a single-sentence summary (≤{tokens} words) explaining the nature of the relationship between two aggregation entities
+- Avoid reproducing individual sub-entity relationships
+- Emphasize structural, functional, or thematic connections at the group level
+
+---
+
+## InputFormat
+Aggregation A Name: {entity_a}
 Aggregation A Description: {entity_a_description}
 
-Aggregation B: {entity_b}
+Aggregation B Name: {entity_b}
 Aggregation B Description: {entity_b_description}
 
-Evidence:
+Sub-Entity Relationships:
 {relation_information}
+---
+
+## OutputFormat
+<Single-sentence explanation (≤{tokens} words) summarizing the relationship between Aggregation A and Aggregation B. Use abstract group-level language and do not include names or specific node-level relationships.>
+
+---
+
+## Rules
+
+- DO NOT output `relationship<|>` lines or copy sub-entity relationship descriptions
+- DO NOT name specific sub-entities (e.g., individuals)
+- DO NOT use the term “community”; always refer to “aggregation,” “group,” “collection,” or thematic equivalents
+- DO use collective terms (e.g., “external reviewers,” “trade policy actors”)
+- The sentence must be ≤{tokens} words, factual, grounded, and in formal English
+- The relationship must reflect an **aggregation-level abstraction**, such as:
+  - support/collaboration
+  - review/feedback
+  - functional alignment
+  - domain linkage (e.g., one produces work, the other evaluates it)
+
+## Example
+
+### Input:
+Aggregation A Name: WTO External Contributors
+Aggregation A Description: A group of economists and trade policy experts who provided feedback on early drafts of WTO reports.
+
+Aggregation B Name: WTO Flagship Reports
+Aggregation B Description: Core analytical publications from the WTO addressing international trade issues.
+
+Sub-Entity Relationships:
+- Person A → early drafts of WTO report → gave feedback
+- Person B → early drafts → reviewed document
+
+### Output:
+WTO External Contributors played an advisory role to the WTO Flagship Reports aggregation by offering critical expert feedback on preliminary drafts, strengthening the analytical rigor and credibility of the final publications.
 """
 
 LEANRAG_PROMPTS = {
     "aggregate_entities": LEANRAG_AGGREGATE_ENTITY_PROMPT,
     "cluster_cluster_relation": LEANRAG_AGGREGATE_RELATION_PROMPT,
-    "rag_response": "{context_data}",
+    "rag_response": """---Role---
+
+You are a helpful assistant responding to questions about data in the tables provided.
+
+
+---Goal---
+
+Generate a response of the target length and format that responds to the user's question, summarizing all information in the input data tables appropriate for the response length and format, and incorporating any relevant general knowledge.
+If you don't know the answer, just say so. Do not make anything up.
+Do not include information where the supporting evidence for it is not provided.
+
+---Target response length and format---
+
+Multiple Paragraphs
+
+
+---Data tables---
+
+{context_data}
+
+
+---Goal---
+
+Generate a response of the target length and format that responds to the user's question, summarizing all information in the input data tables appropriate for the response length and format, and incorporating any relevant general knowledge.
+
+If you don't know the answer, just say so. Do not make anything up.
+
+Do not include information where the supporting evidence for it is not provided.
+
+
+Add sections and commentary to the response as appropriate for the length and format. Style the response in markdown.
+""",
 }

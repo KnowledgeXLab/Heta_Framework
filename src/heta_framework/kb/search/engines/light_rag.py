@@ -3,22 +3,21 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from heta_framework.common.models import EmbeddingRequest, ModelOptions, ModelRequest
 from heta_framework.common.models.protocols import EmbeddingModelProtocol
 from heta_framework.common.stores.sql import SQLStoreProtocol
 from heta_framework.common.stores.vector import VectorQuery, VectorSearchResult, VectorStoreProtocol
-from heta_framework.kb.graphing.prompts import LIGHTRAG_PROMPTS
 from heta_framework.kb.search.assets import SearchAsset, SearchAssetRef
 from heta_framework.kb.search.engines._language import (
     optional_language_model_from_context,
     parse_json_object,
     should_generate_answer,
 )
-from heta_framework.kb.search.engines._provenance import chunk_source, citations_from_results
+from heta_framework.kb.search.engines._provenance import citations_from_results, chunk_source
+from heta_framework.kb.graphing.prompts import LIGHTRAG_PROMPTS
 from heta_framework.kb.search.protocols import QueryContext
 from heta_framework.kb.search.types import QueryRequest, QueryResponse, QueryResult, QueryTraceEvent
 from heta_framework.kb.steps.graph_storage import validate_identifier
@@ -266,9 +265,11 @@ async def _query_lightrag(
         relations=relations,
         limit=_chunk_limit(request),
     )
-    chunks = (_round_robin_chunks(vector_chunks, fact_chunks) if branch == "mix" else fact_chunks)[
-        : _chunk_limit(request)
-    ]
+    chunks = (
+        _round_robin_chunks(vector_chunks, fact_chunks)
+        if branch == "mix"
+        else fact_chunks
+    )[: _chunk_limit(request)]
     context_text, raw_data = _build_lightrag_context(
         mode=mode,
         entities=entities,
@@ -365,12 +366,8 @@ async def _keywords_from_query(
     high = parsed.get("high_level_keywords", [])
     low = parsed.get("low_level_keywords", [])
     return {
-        "high_level": [str(item) for item in high if str(item).strip()]
-        if isinstance(high, list)
-        else [],
-        "low_level": [str(item) for item in low if str(item).strip()]
-        if isinstance(low, list)
-        else [],
+        "high_level": [str(item) for item in high if str(item).strip()] if isinstance(high, list) else [],
+        "low_level": [str(item) for item in low if str(item).strip()] if isinstance(low, list) else [],
     }
 
 
@@ -631,9 +628,7 @@ async def _generate_answer(
     if model is None:
         return None, {"answer_generation": "missing_language_model"}
     prompts = _lightrag_prompts()
-    user_prompt = (
-        f"\n\n{request.options.get('user_prompt')}" if request.options.get("user_prompt") else "n/a"
-    )
+    user_prompt = f"\n\n{request.options.get('user_prompt')}" if request.options.get("user_prompt") else "n/a"
     response_type = str(request.options.get("response_type") or "Multiple Paragraphs")
     prompt = str(prompts["rag_response"]).format(
         response_type=response_type,
@@ -693,9 +688,7 @@ def _round_robin_by_key(
     return results
 
 
-def _decode_row(
-    row: Mapping[str, Any], *, score: float | None = None, order: int | None = None
-) -> dict[str, Any]:
+def _decode_row(row: Mapping[str, Any], *, score: float | None = None, order: int | None = None) -> dict[str, Any]:
     decoded = dict(row)
     for key in ("source_ids", "file_paths", "properties", "metadata"):
         if key in decoded:
@@ -777,10 +770,4 @@ def _require_embedding_model(component: object) -> EmbeddingModelProtocol:
 
 
 def _lightrag_prompts() -> Mapping[str, Any]:
-    if not hasattr(_lightrag_prompts, "_cache"):
-        _lightrag_prompts._cache = _load_lightrag_prompts()
-    return _lightrag_prompts._cache
-
-
-def _load_lightrag_prompts() -> Mapping[str, Any]:
     return LIGHTRAG_PROMPTS
