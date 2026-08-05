@@ -145,11 +145,31 @@ def _matches_evidence(evidence: BenchmarkEvidence, result: QueryResult) -> bool:
 def _locator_matches(locator: Mapping[str, Any], result: QueryResult) -> bool:
     source = dict(result.source)
     for key, expected in locator.items():
-        if key == "source_key":
-            actual = source.get("source_key", source.get("object_key"))
+        if key in {"source_key", "object_key"}:
+            if str(expected) in _result_source_values(
+                result,
+                singular_keys=("source_key", "object_key"),
+                plural_keys=("source_keys", "object_keys"),
+            ):
+                continue
+            return False
         elif key == "source_key_prefix":
-            actual = str(source.get("source_key", source.get("object_key", "")))
-            if actual.startswith(str(expected)):
+            if any(
+                actual.startswith(str(expected))
+                for actual in _result_source_values(
+                    result,
+                    singular_keys=("source_key", "object_key"),
+                    plural_keys=("source_keys", "object_keys"),
+                )
+            ):
+                continue
+            return False
+        elif key == "document_id":
+            if str(expected) in _result_source_values(
+                result,
+                singular_keys=("document_id",),
+                plural_keys=("document_ids",),
+            ):
                 continue
             return False
         elif key == "chunk_id":
@@ -167,12 +187,32 @@ def _locator_matches(locator: Mapping[str, Any], result: QueryResult) -> bool:
 def _reference_matches(reference_id: str, result: QueryResult) -> bool:
     if reference_id == result.id:
         return True
-    source = dict(result.source)
-    return reference_id in {
-        str(source.get("document_id", "")),
-        str(source.get("source_key", "")),
-        str(source.get("object_key", "")),
-    }
+    return reference_id in _result_source_values(
+        result,
+        singular_keys=("document_id", "source_key", "object_key"),
+        plural_keys=("document_ids", "source_keys", "object_keys"),
+    )
+
+
+def _result_source_values(
+    result: QueryResult,
+    *,
+    singular_keys: tuple[str, ...],
+    plural_keys: tuple[str, ...],
+) -> set[str]:
+    values: set[str] = set()
+    for candidate in _source_candidates(result):
+        for key in singular_keys:
+            value = candidate.get(key)
+            if value is not None and str(value).strip():
+                values.add(str(value))
+        for key in plural_keys:
+            values.update(
+                str(value)
+                for value in _as_sequence(candidate.get(key))
+                if value is not None and str(value).strip()
+            )
+    return values
 
 
 def _text_matches(expected_text: str, result_text: str) -> bool:

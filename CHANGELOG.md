@@ -29,6 +29,8 @@ All notable changes to Heta Framework are documented in this file.
 
 - Bundled LightRAG and LeanRAG query prompts in Heta Framework so installed
   packages no longer depend on adjacent LightRAG or LeanRAG source repositories.
+- Fixed evidence recall matching for aggregated query results carrying multiple
+  document and source identifiers, including HiRAG results evaluated on MultiHop-RAG.
 - Completed graph dependency declarations for NumPy, scikit-learn, UMAP,
   NetworkX, and graspologic.
 - Added the object store required by LeanRAG query integration tests.
