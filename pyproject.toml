@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "heta-framework"
-version = "0.1.1"
+version = "0.1.2"
 description = "Composable knowledge-base framework for building, searching, and evaluating RAG systems from recipes."
 readme = "README.md"
 license = "AGPL-3.0-only"
