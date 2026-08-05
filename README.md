@@ -47,6 +47,7 @@ pip install "heta-framework[sql]"          # SQLStore and sql_text_search with S
 pip install "heta-framework[postgres]"     # PostgreSQL driver for SQLStore and PostgreSQL text ranking
 pip install "heta-framework[mysql]"        # MySQL driver for SQLStore
 pip install "heta-framework[milvus]"       # Milvus vector store
+pip install "heta-framework[graph]"        # GraphRAG, HiRAG, LeanRAG, and Leiden clustering
 pip install "heta-framework[s3]"           # S3-compatible object store
 pip install "heta-framework[text-index]"   # Elasticsearch-backed full_text_search
 ```
