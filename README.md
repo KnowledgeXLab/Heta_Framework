@@ -52,17 +52,6 @@ pip install "heta-framework[s3]"           # S3-compatible object store
 pip install "heta-framework[text-index]"   # Elasticsearch-backed full_text_search
 ```
 
-Task generation is available in the 0.2.0 Beta release on Python 3.12:
-
-```bash
-pip install "heta-framework[generation]==0.2.0b1"
-```
-
-The [task generation documentation](https://knowledgexlab.github.io/Heta_Framework/core-components/generation/task-protocols/)
-covers Exploration, Derivation, and Graph producers, their inputs, and Harbor
-validation requirements. Generated tasks require content review; validation
-failures can leave a run with no accepted tasks.
-
 Set a model key. Heta uses LiteLLM model names:
 
 ```bash

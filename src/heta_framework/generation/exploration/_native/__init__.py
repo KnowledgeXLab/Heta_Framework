@@ -1,1 +1,0 @@
-"""Grounded scientific task production."""
