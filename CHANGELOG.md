@@ -2,6 +2,53 @@
 
 All notable changes to Heta Framework are documented in this file.
 
+## 0.2.0b1 - 2026-10-16
+
+### Added
+
+- Added the optional `generation` package with a typed task-producer protocol,
+  explicit producer configuration and input requirements, and object-store task
+  manifests and reports.
+- Added `HetaGenTaskProducerExploration` for source-grounded task authoring,
+  building, review, and bounded revision.
+- Added `HetaGenTaskProducerDerivation` for generating task variants from seed
+  tasks through NeMo Data Designer.
+- Added `HetaGenTaskProducerGraph` for evidence-grounded task generation through
+  the native Omega workflow, accepting either a Heta knowledge base and query
+  or prepared text and knowledge-graph objects.
+- Added Harbor task packaging, static checks, and runtime validation with
+  Oracle and Nop agents, together with bilingual usage and extension guides.
+
+### Changed
+
+- Updated LiteLLM from 1.87.1 to 1.101.0.
+- Added pinned Data Designer 0.9.2 and Harbor 0.23.0 dependencies to the
+  `generation` extra; base installations do not install these dependencies.
+
+### Fixed
+
+- Preserved original-document provenance in aggregated LightRAG query results.
+- Normalized Graph producer stage summaries before runtime processing so mixed
+  Parquet schemas do not discard records.
+- Preserved explicit failure results across runtime stage boundaries and
+  reported missing stage records alongside independently validated tasks.
+
+### Compatibility
+
+- Base Heta Framework supports Python 3.10 through 3.12. Task generation requires
+  Python 3.12 and the `generation` extra.
+- Existing knowledge-base build and query APIs remain available.
+- Runtime task validation requires Docker. Exploration additionally requires a
+  locally prepared role image; installing the Python extra does not create it.
+
+### Known Limitations
+
+- Task generation is a Beta API and generated content requires review for
+  scientific correctness and task difficulty.
+- Candidates that fail validation are excluded; a run may produce no tasks.
+- Graph runtime validation failures do not trigger a complete automatic
+  authoring and revalidation loop.
+
 ## 0.1.2 - 2026-08-05
 
 ### Added

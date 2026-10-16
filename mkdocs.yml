@@ -67,6 +67,12 @@ plugins:
                     - Heta graph search: core-components/search/heta-graph-search.en.md
                     - Heta query modes: core-components/search/heta-query-modes.en.md
                     - Wiki agent search: core-components/search/wiki-agent-search.en.md
+                - Generation:
+                    - Task production protocols: core-components/generation/task-protocols.en.md
+                    - HetaGen exploration producer: core-components/generation/exploration-task-producer.en.md
+                    - HetaGen derivation producer: core-components/generation/derivation-task-producer.en.md
+                    - HetaGen graph producer: core-components/generation/graph-task-producer.en.md
+                    - SINDy task example: core-components/generation/hopf-task-example.en.md
                 - Evaluation:
                     - Benchmark protocols: core-components/evaluation/benchmark-protocols.en.md
                     - BenchmarkRunner: core-components/evaluation/benchmark-runner.en.md
@@ -142,6 +148,12 @@ nav:
           - Heta graph search: core-components/search/heta-graph-search.zh.md
           - Heta query modes: core-components/search/heta-query-modes.zh.md
           - Wiki agent search: core-components/search/wiki-agent-search.zh.md
+      - Generation:
+          - Task production protocols: core-components/generation/task-protocols.zh.md
+          - HetaGen exploration producer: core-components/generation/exploration-task-producer.zh.md
+          - HetaGen derivation producer: core-components/generation/derivation-task-producer.zh.md
+          - HetaGen graph producer: core-components/generation/graph-task-producer.zh.md
+          - SINDy task example: core-components/generation/hopf-task-example.zh.md
       - Evaluation:
           - Benchmark protocols: core-components/evaluation/benchmark-protocols.zh.md
           - BenchmarkRunner: core-components/evaluation/benchmark-runner.zh.md
