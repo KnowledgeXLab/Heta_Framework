@@ -1,0 +1,98 @@
+{
+  "entity": {
+    "name": {
+      "type": "string",
+      "description": "论文中出现或可由连续原文明确概括出的规范实体名称；必须使用具体名称，不得使用‘该方法’、‘这一问题’等代词。"
+    },
+    "type": {
+      "type": "string",
+      "description": "实体所属类型；取值必须来自 entity_type.domain。"
+    },
+    "description": {
+      "type": "string",
+      "description": "说明该实体在当前论文中的具体含义、功能或研究角色；不得只重复实体名称，也不得写成脱离本文语境的百科定义。"
+    },
+    "evidence": {
+      "type": "string",
+      "description": "能够直接证明该实体存在并支持其 description 的最短连续原文；必须逐字引用当前分块，不得改写或总结。"
+    }
+  },
+  "entity_type": {
+    "domain": [
+      {"type": "TASK", "description": "论文明确研究、执行或评测的任务，例如随机优化、图像分类、机器翻译、数据同化或问答检索。"},
+      {"type": "PROBLEM", "description": "论文试图解决的具体科学问题、技术困难或尚未解决的研究缺口，例如稀疏梯度下的不稳定更新。"},
+      {"type": "METHOD", "description": "具有明确名称的方法、模型、算法、框架或系统，包括论文提出的方法和作为比较对象的基线方法。"},
+      {"type": "COMPONENT", "description": "构成 METHOD 或其他 COMPONENT 的具名内部模块、算子或架构单元，例如编码器、路由器、观测算子或损失模块。"},
+      {"type": "TECHNIQUE", "description": "METHOD 或 COMPONENT 使用的可复用技术、训练目标、推理策略或计算过程，例如偏差校正、对比学习或延迟嵌入。"},
+      {"type": "DATASET", "description": "用于训练、验证或评测的具名数据集、语料库、基准、数据划分或版本化数据资源。"},
+      {"type": "METRIC", "description": "用于衡量性能、误差、复杂度或理论性质的具名指标、评分、界或评价准则，例如 F1、Recall@1 或 Regret Bound。"},
+      {"type": "DOMAIN_TERM", "description": "论文领域内具有特定含义、且不能更准确归入其他类型的概念、变量、状态或术语，例如信噪比或吸引子。"},
+      {"type": "ARTIFACT", "description": "论文中的具名结构化知识载体，例如定理、引理、定义、公式、算法、图、表或示例。"},
+      {"type": "MOTIVATION", "description": "促使作者开展该研究或设计某方法的明确原因、实际需求或理论需求，例如现有方法无法处理非平稳目标。"},
+      {"type": "CONTRIBUTION", "description": "论文明确声称的新方法、新理论、新发现、新资源或其他主要学术贡献。"},
+      {"type": "CLAIM", "description": "论文提出并可被证据支持、反驳或检验的具体发现、结论、假设或结果性命题。"},
+      {"type": "MECHANISM", "description": "解释某现象为何发生或某方法为何有效的具体因果、机理、理论或启发式过程。"},
+      {"type": "LIMITATION", "description": "方法、技术或结论的明确适用边界、缺陷、失败模式、偏差、计算代价或有效性威胁。"},
+      {"type": "REQUIREMENT", "description": "方法运行或结论成立所必需的输入、资源、前提、假设、约束或参数条件。"},
+      {"type": "PROPERTY", "description": "某实体具有的可复用且相对稳定的结构、理论、行为或能力特征，例如尺度不变性或有界性。"},
+      {"type": "PROCESS", "description": "论文描述的具有阶段变化、状态演化或输入输出转换的具体科学或计算过程，例如自动退火或参数更新。"}
+    ]
+  },
+  "relation": {
+    "head_entity": {
+      "type": "string",
+      "description": "关系起点实体的规范名称；必须与已抽取 Entity 的 name 完全一致。"
+    },
+    "head_type": {
+      "type": "string",
+      "description": "关系起点实体的类型；必须与对应 Entity 的 type 一致，并属于所选 relation 的 head_types。"
+    },
+    "relation": {
+      "type": "string",
+      "description": "起点到终点之间的规范关系类型；取值必须来自 relation_type.domain。"
+    },
+    "tail_entity": {
+      "type": "string",
+      "description": "关系终点实体的规范名称；必须与已抽取 Entity 的 name 完全一致，且不得与 head_entity 相同。"
+    },
+    "tail_type": {
+      "type": "string",
+      "description": "关系终点实体的类型；必须与对应 Entity 的 type 一致，并属于所选 relation 的 tail_types。"
+    },
+    "description": {
+      "type": "string",
+      "description": "具体说明 head_entity 如何通过该 relation 关联到 tail_entity；必须包含两个实体在本文中的实际语义，不得只复述关系名称。"
+    },
+    "evidence": {
+      "type": "string",
+      "description": "能够直接证明两个实体之间存在该关系的最短连续原文；原文必须同时表达关系语义，两个实体仅在同一段共现不能作为关系证据。"
+    }
+  },
+  "relation_type": {
+    "domain": [
+      {"type": "BUILDS_ON", "head_types": ["METHOD"], "tail_types": ["METHOD"], "description": "head 方法明确继承 tail 方法的核心思想、结构或能力，并在其基础上继续扩展；不能仅因二者被一起比较而使用。"},
+      {"type": "USES_COMPONENT", "head_types": ["METHOD", "COMPONENT"], "tail_types": ["COMPONENT"], "description": "head 方法或组件调用、包含或依赖一个具有独立名称和功能的 tail 架构组件。"},
+      {"type": "ALTERNATIVE_TO", "head_types": ["METHOD"], "tail_types": ["METHOD"], "description": "head 与 tail 是面向相同或高度相近任务的可替代方法，原文明确将二者作为备选方案。"},
+      {"type": "SOLVES", "head_types": ["METHOD"], "tail_types": ["TASK", "PROBLEM"], "description": "原文明确声称或证明 head 方法解决了 tail 任务或问题；仅以其为目标时应使用 TARGETS。"},
+      {"type": "APPLIED_TO", "head_types": ["METHOD"], "tail_types": ["TASK", "DATASET"], "description": "head 方法被实际应用于 tail 任务或数据集，但该关系不自动表示成功解决或正式评测。"},
+      {"type": "TARGETS", "head_types": ["METHOD", "CONTRIBUTION"], "tail_types": ["TASK", "PROBLEM"], "description": "head 方法或贡献在设计目标上针对 tail 任务或问题，但原文尚未给出充分解决证据。"},
+      {"type": "CAUSES", "head_types": ["METHOD", "COMPONENT", "TECHNIQUE", "MECHANISM", "PROPERTY", "PROCESS"], "tail_types": ["CLAIM", "PROPERTY", "PROCESS", "LIMITATION"], "description": "原文明示 head 是 tail 结果、性质、过程或限制产生的原因；相关、共现或时间先后均不足以建立该关系。"},
+      {"type": "ENABLES", "head_types": ["METHOD", "COMPONENT", "TECHNIQUE", "MECHANISM", "PROCESS"], "tail_types": ["TASK", "CLAIM", "PROPERTY", "PROCESS"], "description": "head 提供 tail 所必需的能力或条件，使相应任务、结果、性质或过程能够实现。"},
+      {"type": "INHIBITS", "head_types": ["METHOD", "COMPONENT", "TECHNIQUE", "PROPERTY", "PROCESS", "LIMITATION"], "tail_types": ["TASK", "CLAIM", "PROPERTY", "PROCESS"], "description": "head 明确抑制、削弱、延缓或阻止 tail 任务、结果、性质或过程。"},
+      {"type": "MODULATES", "head_types": ["DOMAIN_TERM", "PROPERTY", "TECHNIQUE", "PROCESS"], "tail_types": ["PROPERTY", "MECHANISM", "PROCESS"], "description": "head 改变 tail 的程度、速率、状态或动态行为，但原文未必声称 head 直接导致 tail 的存在。"},
+      {"type": "CORRELATED_WITH", "head_types": ["DOMAIN_TERM", "PROPERTY", "TECHNIQUE", "PROCESS", "CLAIM"], "tail_types": ["DOMAIN_TERM", "PROPERTY", "PROCESS", "CLAIM"], "description": "原文明示 head 与 tail 存在统计或定性关联，但没有充分证据把这种关联解释为因果关系。"},
+      {"type": "USES_TECHNIQUE", "head_types": ["METHOD", "COMPONENT"], "tail_types": ["TECHNIQUE"], "description": "head 方法或组件采用 tail 技术、训练目标、推理策略或计算过程来实现其功能。"},
+      {"type": "CONSISTS_OF", "head_types": ["METHOD", "COMPONENT", "PROCESS", "ARTIFACT"], "tail_types": ["COMPONENT", "PROCESS", "ARTIFACT"], "description": "tail 是 head 内部不可忽略的组成部分、阶段或结构单元，表达明确的整体—部分关系。"},
+      {"type": "IMPLEMENTS", "head_types": ["METHOD", "COMPONENT", "ARTIFACT"], "tail_types": ["TECHNIQUE", "MECHANISM", "PROCESS"], "description": "head 给出了 tail 技术、机制或过程的具体算法、架构、公式或操作实现。"},
+      {"type": "COMBINES", "head_types": ["METHOD", "COMPONENT", "TECHNIQUE"], "tail_types": ["METHOD", "COMPONENT", "TECHNIQUE"], "description": "head 明确把 tail 与至少一种其他方法、组件或技术整合到同一方案中。"},
+      {"type": "REQUIRES", "head_types": ["METHOD", "COMPONENT", "TECHNIQUE", "CLAIM", "MECHANISM", "PROCESS"], "tail_types": ["REQUIREMENT"], "description": "head 的运行、成立或实现明确依赖 tail 所表示的输入、资源、假设、约束或条件。"},
+      {"type": "DERIVED_FROM", "head_types": ["METHOD", "TECHNIQUE", "METRIC", "DOMAIN_TERM"], "tail_types": ["METHOD", "TECHNIQUE", "METRIC", "DOMAIN_TERM", "ARTIFACT"], "description": "head 通过明确的数学推导、算法变形、结构变换或定义过程从 tail 获得。"},
+      {"type": "DIFFERS_FROM", "head_types": ["METHOD", "TECHNIQUE", "COMPONENT", "CLAIM"], "tail_types": ["METHOD", "TECHNIQUE", "COMPONENT", "CLAIM"], "description": "原文明示 head 与 tail 在算法、结构、假设、适用范围或结论上存在具体差异。"},
+      {"type": "HAS_LIMITATION", "head_types": ["METHOD", "COMPONENT", "TECHNIQUE", "CLAIM"], "tail_types": ["LIMITATION"], "description": "tail 是原文明确归属于 head 的缺陷、适用边界、失败模式、风险、偏差或成本。"},
+      {"type": "ADDRESSES_PROBLEM", "head_types": ["METHOD", "COMPONENT", "TECHNIQUE", "CONTRIBUTION"], "tail_types": ["PROBLEM", "LIMITATION"], "description": "head 的设计明确针对并缓解 tail 问题或已有方法的限制，但不要求原文宣称已完全解决。"},
+      {"type": "MOTIVATED_BY", "head_types": ["METHOD", "CONTRIBUTION", "CLAIM"], "tail_types": ["MOTIVATION", "PROBLEM", "LIMITATION"], "description": "tail 所描述的需求、问题或限制是作者提出 head 方法、贡献或命题的明确原因。"},
+      {"type": "HAS_PROPERTY", "head_types": ["TASK", "METHOD", "COMPONENT", "TECHNIQUE", "DATASET", "METRIC", "DOMAIN_TERM", "ARTIFACT", "CLAIM", "MECHANISM", "PROCESS"], "tail_types": ["PROPERTY"], "description": "tail 表示原文明示属于 head 的稳定结构、理论、行为或能力特征，而不是一次实验中的偶然数值。"},
+      {"type": "SUBSET_OF", "head_types": ["TASK", "METHOD", "TECHNIQUE", "DATASET", "DOMAIN_TERM", "PROBLEM", "PROPERTY"], "tail_types": ["TASK", "METHOD", "TECHNIQUE", "DATASET", "DOMAIN_TERM", "PROBLEM", "PROPERTY"], "description": "head 的全部实例或范围被原文明确定义为包含在 tail 的实例集合或概念范围之内。"}
+    ]
+  }
+}
